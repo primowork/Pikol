@@ -1,0 +1,62 @@
+// כרטיסיית נאמנות דיגיטלית - קפה פיקולו
+// ראו /root/.claude/plans/zesty-dancing-hamming.md להסבר המלא על ההחלטות כאן.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum StaffRole {
+  OWNER
+  STAFF
+}
+
+enum StampEventType {
+  STAMP
+  REDEEM
+}
+
+// לקוח שנרשם למועדון. currentStamps הוא מקור האמת היחיד למספר הניקובים -
+// הוא נכתב אך ורק דרך /api/stamps, לעולם לא ישירות מקלט של הלקוח.
+model Customer {
+  id            String       @id @default(cuid())
+  name          String
+  phone         String       @unique
+  currentStamps Int          @default(0)
+  rewardsEarned Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  stampEvents   StampEvent[]
+}
+
+// חבר צוות / בעל העסק. יכול להתחבר לדשבורד הניהול ולהוסיף ניקובים.
+model StaffUser {
+  id           String       @id @default(cuid())
+  username     String       @unique
+  passwordHash String
+  name         String
+  role         StaffRole    @default(STAFF)
+  createdAt    DateTime     @default(now())
+  stampEvents  StampEvent[]
+}
+
+// יומן ביקורת מלא: כל ניקוב וכל מימוש פרס נרשמים כאן לצמיתות, כולל מי
+// מהצוות ביצע את הפעולה. זו ההגנה המרכזית נגד רמאויות - אין דרך לשנות
+// את מספר הניקובים בלי שהפעולה תתועד כאן.
+model StampEvent {
+  id         String         @id @default(cuid())
+  type       StampEventType
+  customerId String
+  staffId    String
+  createdAt  DateTime       @default(now())
+
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  staff    StaffUser @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, type, createdAt])
+  @@index([createdAt])
+}
