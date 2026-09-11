@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* פלטת המותג של קפה פיקולו, נמדדה ישירות מהלוגו. Tailwind v4 הופך כל
+   טוקן כאן ל-utility class רגיל: bg-pikol-brown, text-pikol-teal וכו'. */
+@theme {
+  --color-pikol-brown: #614943;
+  --color-pikol-tan: #b59683;
+  --color-pikol-teal: #0ba7a0;
+  --color-pikol-cream: #fffaee;
+  --color-pikol-gold: #c89b72;
+
+  /* --font-heebo מוזרק ע"י next/font (layout.tsx) על ה-<html> */
+  --font-sans: var(--font-heebo), system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--color-pikol-cream);
+  color: var(--color-pikol-brown);
+}
+
+/* אנימציית ה"הטבעה" של כוס שזה עתה נוקבה - סקייל קטן שנרגע לגודל רגיל. */
+@keyframes stamp-in {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-stamp-in {
+  animation: stamp-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
