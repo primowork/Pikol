@@ -1,8 +1,8 @@
 {
-  "name": "pikol-loyalty",
+  "name": "pikol-cards",
   "version": "0.1.0",
   "private": true,
-  "description": "כרטיסיית נאמנות דיגיטלית לקפה פיקולו",
+  "description": "כרטיסיית ניקוב דיגיטלית לקפה פיקולו",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

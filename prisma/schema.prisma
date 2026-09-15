@@ -1,4 +1,4 @@
-// כרטיסיית נאמנות דיגיטלית - קפה פיקולו
+// כרטיסיית ניקוב דיגיטלית - קפה פיקולו
 // ראו /root/.claude/plans/zesty-dancing-hamming.md להסבר המלא על ההחלטות כאן.
 
 generator client {
@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

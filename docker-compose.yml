@@ -1,0 +1,17 @@
+# Postgres מקומי לפיתוח. הרצה: docker compose up -d
+# (לפרודקשן משתמשים במסד נתונים מנוהל אמיתי, לא בזה - ראו README.)
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pikol
+      POSTGRES_PASSWORD: pikol
+      POSTGRES_DB: pikol
+    ports:
+      - "5432:5432"
+    volumes:
+      - pikol_pgdata:/var/lib/postgresql/data
+
+volumes:
+  pikol_pgdata:

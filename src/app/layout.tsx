@@ -10,7 +10,7 @@ const heebo = Heebo({
 });
 
 export const metadata: Metadata = {
-  title: `${BUSINESS_NAME} — כרטיס נאמנות`,
+  title: `${BUSINESS_NAME} — כרטיס ניקוב`,
   description: BUSINESS_TAGLINE,
   manifest: "/manifest.json",
   icons: {
