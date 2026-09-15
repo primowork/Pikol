@@ -48,7 +48,7 @@ export default function JoinPage() {
 
       <form onSubmit={handleSubmit} className="w-full space-y-4">
         <h2 className="text-center text-lg font-semibold text-pikol-brown">
-          הצטרפות למועדון הנאמנות
+          הצטרפות למועדון
         </h2>
 
         <div>
