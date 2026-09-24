@@ -55,25 +55,58 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** חיפוש ידני לפי טלפון - staff בלבד, fallback כשסריקת המצלמה לא זמינה. */
+const CUSTOMER_LIST_LIMIT = 200;
+
+/**
+ * staff בלבד. שני מצבים על אותו endpoint:
+ * - `?phone=` (הדפוס הקיים): חיפוש ידני מדויק, fallback כשסריקת המצלמה
+ *   לא זמינה - נשאר בדיוק כמו שהיה.
+ * - בלי `phone` (חדש): רשימת כל הלקוחות למסך "מסד הלקוחות", עם `?search=`
+ *   חופשי אופציונלי שמחפש גם בשם וגם בטלפון מנורמל.
+ */
 export async function GET(request: NextRequest) {
   try {
     await requireStaff();
 
     const { searchParams } = new URL(request.url);
     const rawPhone = searchParams.get("phone");
-    if (!rawPhone) {
-      throw new ValidationError("יש לספק מספר טלפון לחיפוש");
+
+    if (rawPhone) {
+      const phone = normalizePhone(rawPhone);
+      if (!phone) {
+        return NextResponse.json({ customers: [] });
+      }
+
+      const customers = await prisma.customer.findMany({
+        where: { phone },
+        select: { id: true, name: true, phone: true, currentStamps: true, rewardsEarned: true },
+      });
+
+      return NextResponse.json({ customers });
     }
 
-    const phone = normalizePhone(rawPhone);
-    if (!phone) {
-      return NextResponse.json({ customers: [] });
-    }
+    const search = searchParams.get("search")?.trim();
+    const normalizedSearchPhone = search ? normalizePhone(search) : null;
 
     const customers = await prisma.customer.findMany({
-      where: { phone },
-      select: { id: true, name: true, phone: true, currentStamps: true, rewardsEarned: true },
+      where: search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              ...(normalizedSearchPhone ? [{ phone: { contains: normalizedSearchPhone } }] : []),
+            ],
+          }
+        : undefined,
+      orderBy: { createdAt: "desc" },
+      take: CUSTOMER_LIST_LIMIT,
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        currentStamps: true,
+        rewardsEarned: true,
+        createdAt: true,
+      },
     });
 
     return NextResponse.json({ customers });
