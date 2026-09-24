@@ -22,3 +22,13 @@ export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // חודש
 
 /** כמה מיליישניות לשמור מטמון לוגו/סטטי בשירות הרקע (service worker). */
 export const SW_CACHE_NAME = "pikol-shell-v1";
+
+/**
+ * כמה שניות לחכות בין שתי בקשות אישור רצופות לאותו לקוח (הגנה מפני
+ * הצפת התראות Push לצוות). קבוע נפרד מ-STAMP_COOLDOWN_SECONDS - הסמנטיקה
+ * שונה (כאן מונעים ספאם התראות, לא הקשה כפולה בטעות של staff).
+ */
+export const APPROVAL_REQUEST_COOLDOWN_SECONDS = 60;
+
+/** כמה שניות בקשת אישור נשארת תקפה לפני שהיא נחשבת פגת-תוקף (נגזר בזמן קריאה, לא נכתב ל-DB). */
+export const APPROVAL_REQUEST_TIMEOUT_SECONDS = 5 * 60;

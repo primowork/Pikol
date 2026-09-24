@@ -52,6 +52,20 @@ export class RateLimitedError extends ApiError {
   }
 }
 
+/** ניסיון ליצור בקשת אישור נוספת לאותו לקוח זמן קצר אחרי הקודמת. */
+export class ApprovalRequestCooldownError extends ApiError {
+  constructor(retryAfterSeconds: number) {
+    super(409, "כבר נשלחה בקשה לאחרונה, נסו שוב בעוד כמה שניות", { retryAfterSeconds });
+  }
+}
+
+/** בקשת אישור שכבר טופלה (אושרה/נדחתה) או פגת-תוקף - אין מה לאשר/לדחות שוב. */
+export class ApprovalConflictError extends ApiError {
+  constructor(message = "הבקשה כבר טופלה") {
+    super(409, message);
+  }
+}
+
 export function handleApiError(err: unknown): NextResponse {
   if (err instanceof ApiError) {
     return NextResponse.json({ error: err.message, ...err.extra }, { status: err.status });

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { stampActionSchema } from "@/lib/validation";
-import { STAMPS_REQUIRED, STAMP_COOLDOWN_SECONDS } from "@/lib/config";
-import { handleApiError, ValidationError, NotFoundError, CooldownError } from "@/lib/errors";
+import { STAMPS_REQUIRED } from "@/lib/config";
+import { handleApiError, ValidationError, NotFoundError } from "@/lib/errors";
+import { addStampForCustomer } from "@/lib/stamp-actions";
 
 /**
  * הפעולה הביטחונית המרכזית של כל המערכת: הוספה/מימוש ניקוב. staff בלבד.
@@ -30,30 +31,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (action === "STAMP") {
-        // הגנה מפני סריקה כפולה בטעות (לא מרמאות מכוונת - ההגנה מפני
-        // זו היא כל הבקשה הזו, שדורשת staff מאומת מלכתחילה).
-        const cooldownStart = new Date(Date.now() - STAMP_COOLDOWN_SECONDS * 1000);
-        const recentStamp = await tx.stampEvent.findFirst({
-          where: { customerId, type: "STAMP", createdAt: { gte: cooldownStart } },
-          orderBy: { createdAt: "desc" },
-        });
-        if (recentStamp) {
-          const elapsedMs = Date.now() - recentStamp.createdAt.getTime();
-          const retryAfterSeconds = Math.max(
-            1,
-            Math.ceil((STAMP_COOLDOWN_SECONDS * 1000 - elapsedMs) / 1000)
-          );
-          throw new CooldownError(retryAfterSeconds);
-        }
-
-        const updatedCustomer = await tx.customer.update({
-          where: { id: customerId },
-          data: { currentStamps: { increment: 1 } },
-        });
-        const event = await tx.stampEvent.create({
-          data: { type: "STAMP", customerId, staffId: staff.sub },
-        });
-        return { customer: updatedCustomer, event };
+        return addStampForCustomer(tx, customerId, staff.sub);
       }
 
       // action === "REDEEM"
