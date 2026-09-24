@@ -20,5 +20,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/staff/dashboard/:path*", "/staff/stand-qr"],
+  matcher: ["/staff/dashboard/:path*", "/staff/stand-qr", "/staff/customers"],
 };

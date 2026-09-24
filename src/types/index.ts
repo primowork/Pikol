@@ -17,6 +17,16 @@ export interface CustomerSearchResult {
   rewardsEarned: number;
 }
 
+/** שורה ברשימת "מסד הלקוחות" (staff/customers) - כוללת תאריך הצטרפות. */
+export interface CustomerListItem {
+  id: string;
+  name: string;
+  phone: string;
+  currentStamps: number;
+  rewardsEarned: number;
+  createdAt: string;
+}
+
 /** הצורה המשותפת בין תוצאת חיפוש/סריקה לתוצאת POST /api/stamps. */
 export interface ActiveCustomer {
   id: string;

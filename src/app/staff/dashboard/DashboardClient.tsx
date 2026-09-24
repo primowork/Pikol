@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Logo from "@/components/Logo";
 import QrScanner from "@/components/QrScanner";
 import PhoneSearch from "@/components/PhoneSearch";
@@ -91,6 +92,16 @@ export default function DashboardClient({ staffName, vapidPublicKey }: Dashboard
         >
           יציאה
         </button>
+      </div>
+
+      <div className="flex w-full items-center justify-center gap-4 text-xs text-pikol-brown/60">
+        <Link href="/staff/stand-qr" className="underline">
+          קוד הדוכן להדפסה
+        </Link>
+        <span className="text-pikol-tan">•</span>
+        <Link href="/staff/customers" className="underline">
+          מסד הלקוחות
+        </Link>
       </div>
 
       <NotificationSubscribe vapidPublicKey={vapidPublicKey} />
