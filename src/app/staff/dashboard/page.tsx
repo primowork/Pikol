@@ -10,5 +10,5 @@ export default async function StaffDashboardPage() {
     redirect("/staff/login");
   }
 
-  return <DashboardClient staffName={staff.name} />;
+  return <DashboardClient staffName={staff.name} vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ""} />;
 }

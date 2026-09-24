@@ -66,3 +66,88 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// --- Web Push: אישור/דחיית ניקוב מרחוק, בלי לפתוח את האפליקציה ---
+// לקוח סורק את ה-QR הקבוע בדוכן -> השרת שולח Push לכל מכשירי הצוות ->
+// לחיצה על "אישור"/"דחייה" כאן מבצעת את הפעולה ישירות מה-service worker,
+// בעזרת קוקי ה-session הקיים של הצוות (credentials:'include').
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+
+  const title = data.title || "בקשת ניקוב חדשה";
+  const options = {
+    body: data.body || "לקוח מבקש ניקוב - לחצו לאישור",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    dir: "rtl",
+    lang: "he",
+    tag: data.approvalRequestId ? `approval-${data.approvalRequestId}` : undefined,
+    data: { approvalRequestId: data.approvalRequestId },
+    actions: [
+      { action: "approve", title: "אישור" },
+      { action: "decline", title: "דחייה" },
+    ],
+    requireInteraction: true,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const approvalRequestId = event.notification.data && event.notification.data.approvalRequestId;
+  if (!approvalRequestId) return;
+
+  if (event.action === "approve" || event.action === "decline") {
+    const endpoint = `/api/approval-requests/${approvalRequestId}/${event.action}`;
+    event.waitUntil(
+      fetch(endpoint, { method: "POST", credentials: "include" })
+        .then((response) => {
+          if (response.ok) return;
+          // fetch().catch() לא תופס תגובות שגיאה תקינות (401/404/409) -
+          // רק כשל רשת - אז זו בדיקה נפרדת ומכוונת, כדי לא להיכשל בשקט.
+          return response
+            .json()
+            .catch(() => ({}))
+            .then((body) => {
+              self.registration.showNotification("הפעולה לא הושלמה", {
+                body: body.error || "יש לפתוח את הדשבורד ולנסות משם",
+                icon: "/icons/icon-192.png",
+                dir: "rtl",
+                lang: "he",
+              });
+            });
+        })
+        .catch(() => {
+          self.registration.showNotification("בעיית תקשורת", {
+            body: "האישור לא נשלח - יש לפתוח את הדשבורד ולנסות משם",
+            icon: "/icons/icon-192.png",
+            dir: "rtl",
+            lang: "he",
+          });
+        })
+    );
+    return;
+  }
+
+  // לחיצה על גוף ההתראה עצמו (לא על action) - פותח/ממקד את הדשבורד.
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsList) => {
+      for (const client of clientsList) {
+        if (client.url.includes("/staff/dashboard") && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow("/staff/dashboard");
+      }
+    })
+  );
+});

@@ -20,28 +20,38 @@ enum StampEventType {
   REDEEM
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  EXPIRED
+  DECLINED
+}
+
 // לקוח שנרשם למועדון. currentStamps הוא מקור האמת היחיד למספר הניקובים -
 // הוא נכתב אך ורק דרך /api/stamps, לעולם לא ישירות מקלט של הלקוח.
 model Customer {
-  id            String       @id @default(cuid())
-  name          String
-  phone         String       @unique
-  currentStamps Int          @default(0)
-  rewardsEarned Int          @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  stampEvents   StampEvent[]
+  id               String            @id @default(cuid())
+  name             String
+  phone            String            @unique
+  currentStamps    Int               @default(0)
+  rewardsEarned    Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  stampEvents      StampEvent[]
+  approvalRequests ApprovalRequest[]
 }
 
 // חבר צוות / בעל העסק. יכול להתחבר לדשבורד הניהול ולהוסיף ניקובים.
 model StaffUser {
-  id           String       @id @default(cuid())
-  username     String       @unique
-  passwordHash String
-  name         String
-  role         StaffRole    @default(STAFF)
-  createdAt    DateTime     @default(now())
-  stampEvents  StampEvent[]
+  id                String              @id @default(cuid())
+  username          String              @unique
+  passwordHash      String
+  name              String
+  role              StaffRole           @default(STAFF)
+  createdAt         DateTime            @default(now())
+  stampEvents       StampEvent[]
+  pushSubscriptions PushSubscription[]
+  approvalResponses ApprovalRequest[]
 }
 
 // יומן ביקורת מלא: כל ניקוב וכל מימוש פרס נרשמים כאן לצמיתות, כולל מי
@@ -59,4 +69,39 @@ model StampEvent {
 
   @@index([customerId, type, createdAt])
   @@index([createdAt])
+}
+
+// בקשת ניקוב שנוצרת כשלקוח סורק את קוד ה-QR הקבוע בדוכן (לא ה-QR האישי
+// שבכרטיס - זה קוד יחיד וקבוע לכל העסק, לא מכיל credential). אינה מקנה
+// ניקוב בעצמה - רק "מבקשת" אחד. ההוספה בפועל קורית אך ורק דרך
+// POST /api/approval-requests/[id]/approve, שדורש session מאומת של staff -
+// staffId נגזר משם בדיוק כמו ב-POST /api/stamps הקיים, לעולם לא מהבקשה.
+model ApprovalRequest {
+  id                 String         @id @default(cuid())
+  customerId         String
+  status             ApprovalStatus @default(PENDING)
+  createdAt          DateTime       @default(now())
+  respondedAt        DateTime?
+  respondedByStaffId String?
+
+  customer         Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  respondedByStaff StaffUser? @relation(fields: [respondedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+// subscription ל-Web Push של מכשיר בודד. חבר צוות יכול להירשם מכמה
+// מכשירים (יחס one-to-many) - כולם מקבלים את אותה התראה בכל בקשה.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  staffId   String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  staff StaffUser @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
 }

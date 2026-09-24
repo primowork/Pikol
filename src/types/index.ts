@@ -44,3 +44,29 @@ export interface ApiErrorBody {
   error: string;
   retryAfterSeconds?: number;
 }
+
+export type ApprovalStatus = "PENDING" | "APPROVED" | "EXPIRED" | "DECLINED";
+
+/** מצב בקשת האישור כפי שנצפה מ-"/scan" (polling). */
+export interface ApprovalRequestState {
+  id: string;
+  status: ApprovalStatus;
+  createdAt: string;
+}
+
+/** שורה ברשימת "בקשות ממתינות" בדשבורד הצוות. */
+export interface PendingApprovalRequest {
+  id: string;
+  createdAt: string;
+  customer: { id: string; name: string };
+}
+
+/**
+ * תואם את מה שהדפדפן מחזיר מ-PushSubscription.toJSON(). שם שונה בכוונה
+ * מה-interface הגלובלי PushSubscriptionJSON (מ-lib.dom) כדי שלא יהיה
+ * בלבול קריאה בין השניים.
+ */
+export interface SerializedPushSubscription {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}

@@ -7,11 +7,14 @@ import QrScanner from "@/components/QrScanner";
 import PhoneSearch from "@/components/PhoneSearch";
 import CustomerActionPanel from "@/components/CustomerActionPanel";
 import ActivityFeed from "@/components/ActivityFeed";
+import NotificationSubscribe from "@/components/NotificationSubscribe";
+import PendingApprovalsList from "@/components/PendingApprovalsList";
 import { BUSINESS_NAME } from "@/lib/config";
 import type { ActiveCustomer, CustomerSearchResult, CustomerCardState } from "@/types";
 
 interface DashboardClientProps {
   staffName: string;
+  vapidPublicKey: string;
 }
 
 /** ה-QR מכיל קישור מלא לכרטיס (ראו card/[id]/page.tsx) - מחלצים ממנו את המזהה. */
@@ -25,7 +28,7 @@ function extractCustomerId(scannedText: string): string {
   }
 }
 
-export default function DashboardClient({ staffName }: DashboardClientProps) {
+export default function DashboardClient({ staffName, vapidPublicKey }: DashboardClientProps) {
   const router = useRouter();
   const [scannerActive, setScannerActive] = useState(false);
   const [activeCustomer, setActiveCustomer] = useState<ActiveCustomer | null>(null);
@@ -89,6 +92,9 @@ export default function DashboardClient({ staffName }: DashboardClientProps) {
           יציאה
         </button>
       </div>
+
+      <NotificationSubscribe vapidPublicKey={vapidPublicKey} />
+      <PendingApprovalsList onApproved={handleUpdated} />
 
       {activeCustomer ? (
         <CustomerActionPanel
