@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import CupIcon, { type CupStatus } from "@/components/CupIcon";
 import Confetti from "@/components/Confetti";
 import { BUSINESS_NAME } from "@/lib/config";
+import { getTimeBasedGreeting } from "@/lib/greeting";
 import type { ApprovalRequestState, CustomerCardState } from "@/types";
 
 const POLL_INTERVAL_MS = 3000;
@@ -41,9 +42,17 @@ export default function ScanPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [justApprovedAt, setJustApprovedAt] = useState<number | null>(null);
   const [justCompletedAt, setJustCompletedAt] = useState<number | null>(null);
+  const [greeting, setGreeting] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const stampsRequired = customerState?.stampsRequired ?? 10;
   const currentStamps = customerState?.currentStamps ?? 0;
+
+  useEffect(() => {
+    function applyGreeting() {
+      setGreeting(getTimeBasedGreeting(new Date()));
+    }
+    applyGreeting();
+  }, []);
 
   useEffect(() => {
     let storedId: string | null = null;
@@ -194,6 +203,12 @@ export default function ScanPage() {
       <div>
         <h1 className="text-xl font-bold text-pikol-brown">{BUSINESS_NAME}</h1>
       </div>
+
+      {customerState && greeting && (
+        <p className="text-lg text-pikol-brown">
+          {greeting}, <span className="font-semibold">{customerState.name}</span>
+        </p>
+      )}
 
       {screen === "loading" && <p className="text-pikol-brown/70">רק רגע…</p>}
 
