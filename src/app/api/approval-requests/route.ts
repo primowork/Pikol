@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       throw new ValidationError("בקשה לא תקינה");
     }
-    const { customerId } = parsed.data;
+    const { customerId, quantity } = parsed.data;
 
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
       const stillPending = recent.status === "PENDING" && ageSeconds < APPROVAL_REQUEST_TIMEOUT_SECONDS;
       if (stillPending) {
         // אידמפוטנטי בכוונה: רענון דף/סריקה כפולה מיד אחרי היצירה מחזירים
-        // את אותה בקשה הקיימת, לא שגיאה מבלבלת.
-        return NextResponse.json({ approvalRequestId: recent.id });
+        // את אותה בקשה הקיימת, לא שגיאה מבלבלת. quantity מוחזר גם כאן
+        // כדי ש-"/scan" ידע אילו כוסות להציג כ-pending גם אחרי רענון.
+        return NextResponse.json({ approvalRequestId: recent.id, quantity: recent.quantity });
       }
       if (ageSeconds < APPROVAL_REQUEST_COOLDOWN_SECONDS) {
         throw new ApprovalRequestCooldownError(Math.ceil(APPROVAL_REQUEST_COOLDOWN_SECONDS - ageSeconds));
@@ -47,12 +48,15 @@ export async function POST(request: NextRequest) {
     }
 
     const approvalRequest = await prisma.approvalRequest.create({
-      data: { customerId },
+      data: { customerId, quantity },
     });
 
-    await sendApprovalPush(approvalRequest.id, customer.name);
+    await sendApprovalPush(approvalRequest.id, customer.name, quantity);
 
-    return NextResponse.json({ approvalRequestId: approvalRequest.id }, { status: 201 });
+    return NextResponse.json(
+      { approvalRequestId: approvalRequest.id, quantity: approvalRequest.quantity },
+      { status: 201 }
+    );
   } catch (err) {
     return handleApiError(err);
   }
@@ -74,6 +78,7 @@ export async function GET() {
       requests: requests.map((request) => ({
         id: request.id,
         createdAt: request.createdAt,
+        quantity: request.quantity,
         customer: request.customer,
       })),
     });

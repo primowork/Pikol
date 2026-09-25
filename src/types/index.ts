@@ -61,6 +61,7 @@ export type ApprovalStatus = "PENDING" | "APPROVED" | "EXPIRED" | "DECLINED";
 export interface ApprovalRequestState {
   id: string;
   status: ApprovalStatus;
+  quantity: number;
   createdAt: string;
 }
 
@@ -68,6 +69,7 @@ export interface ApprovalRequestState {
 export interface PendingApprovalRequest {
   id: string;
   createdAt: string;
+  quantity: number;
   customer: { id: string; name: string };
 }
 

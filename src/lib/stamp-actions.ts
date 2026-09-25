@@ -12,7 +12,8 @@ import { CooldownError, NotFoundError } from "./errors";
 export async function addStampForCustomer(
   tx: Prisma.TransactionClient,
   customerId: string,
-  staffId: string
+  staffId: string,
+  quantity: number = 1
 ) {
   const customer = await tx.customer.findUnique({ where: { id: customerId } });
   if (!customer) {
@@ -35,10 +36,10 @@ export async function addStampForCustomer(
 
   const updatedCustomer = await tx.customer.update({
     where: { id: customerId },
-    data: { currentStamps: { increment: 1 } },
+    data: { currentStamps: { increment: quantity } },
   });
   const event = await tx.stampEvent.create({
-    data: { type: "STAMP", customerId, staffId },
+    data: { type: "STAMP", customerId, staffId, quantity },
   });
   return { customer: updatedCustomer, event };
 }

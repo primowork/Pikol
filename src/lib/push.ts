@@ -23,15 +23,22 @@ function ensureConfigured() {
  * שולח Web Push לכל מכשירי הצוות הרשומים. כשל במכשיר בודד (Promise.allSettled)
  * לא חוסם את השאר. subscriptions עם endpoint שפג תוקף (404/410) נמחקים מה-DB.
  */
-export async function sendApprovalPush(approvalRequestId: string, customerName: string) {
+export async function sendApprovalPush(
+  approvalRequestId: string,
+  customerName: string,
+  quantity: number
+) {
   ensureConfigured();
 
   const subscriptions = await prisma.pushSubscription.findMany();
   if (subscriptions.length === 0) return;
 
+  // הכמות מוצגת במפורש בכותרת - כדי ש-staff יראה בדיוק כמה מבוקש ולא
+  // יאשר "בעיוורון" בקשה מנופחת. יחיד/רבים בעברית: "ניקוב אחד" / "N ניקובים".
+  const quantityLabel = quantity === 1 ? "ניקוב אחד" : `${quantity} ניקובים`;
   const payload = JSON.stringify({
     approvalRequestId,
-    title: `בקשת ניקוב - ${customerName}`,
+    title: `בקשת ${quantityLabel} - ${customerName}`,
     body: "לחצו לאישור או דחייה",
   });
 

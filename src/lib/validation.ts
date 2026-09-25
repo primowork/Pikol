@@ -1,8 +1,13 @@
 import { z } from "zod";
+import { STAMPS_REQUIRED } from "./config";
 
-/** טופס ההצטרפות למועדון ("/join"). */
+/**
+ * טופס "כניסה/הצטרפות" חכם אחד ("/join"): תמיד שולח טלפון; שם אופציונלי -
+ * הצעד הראשון שולח רק טלפון כדי לבדוק אם הלקוח כבר קיים, ורק אם לא
+ * (needsName בתשובה) הצעד השני שולח גם שם ליצירת כרטיס חדש.
+ */
 export const joinSchema = z.object({
-  name: z.string().trim().min(2, "השם קצר מדי").max(60, "השם ארוך מדי"),
+  name: z.string().trim().min(2, "השם קצר מדי").max(60, "השם ארוך מדי").optional(),
   phone: z.string().trim().min(7, "מספר הטלפון לא תקין").max(20, "מספר הטלפון לא תקין"),
 });
 
@@ -18,9 +23,14 @@ export const stampActionSchema = z.object({
   action: z.enum(["STAMP", "REDEEM"]),
 });
 
-/** יצירת בקשת אישור מ-"/scan" (לקוח סרק את ה-QR הקבוע בדוכן). */
+/**
+ * יצירת בקשת אישור מ-"/scan" (לקוח סרק את ה-QR הקבוע בדוכן). quantity
+ * הוא כמה ניקובים מבוקשים בפעם הזו (למשל שתי קפות באותה קנייה) - תקרה
+ * קבועה של STAMPS_REQUIRED, לא תלוית-מצב (עודף כבר נתמך במערכת בלאו הכי).
+ */
 export const approvalRequestCreateSchema = z.object({
   customerId: z.string().trim().min(1, "חסר מזהה לקוח"),
+  quantity: z.number().int().min(1, "כמות לא תקינה").max(STAMPS_REQUIRED, "כמות גבוהה מדי").default(1),
 });
 
 /** רישום מכשיר צוות ל-Web Push - תואם בדיוק את הפלט של PushSubscription.toJSON() בדפדפן. */

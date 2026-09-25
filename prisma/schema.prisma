@@ -62,6 +62,7 @@ model StampEvent {
   type       StampEventType
   customerId String
   staffId    String
+  quantity   Int            @default(1)
   createdAt  DateTime       @default(now())
 
   customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -80,6 +81,7 @@ model ApprovalRequest {
   id                 String         @id @default(cuid())
   customerId         String
   status             ApprovalStatus @default(PENDING)
+  quantity           Int            @default(1)
   createdAt          DateTime       @default(now())
   respondedAt        DateTime?
   respondedByStaffId String?

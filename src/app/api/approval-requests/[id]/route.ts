@@ -24,7 +24,12 @@ export async function GET(
     const isStale = Date.now() - request.createdAt.getTime() > APPROVAL_REQUEST_TIMEOUT_SECONDS * 1000;
     const status: ApprovalStatus = request.status === "PENDING" && isStale ? "EXPIRED" : request.status;
 
-    return NextResponse.json({ id: request.id, status, createdAt: request.createdAt });
+    return NextResponse.json({
+      id: request.id,
+      status,
+      quantity: request.quantity,
+      createdAt: request.createdAt,
+    });
   } catch (err) {
     return handleApiError(err);
   }

@@ -67,7 +67,9 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
           key={request.id}
           className="flex items-center justify-between gap-2 rounded-xl border border-pikol-gold/50 bg-pikol-gold/10 p-3"
         >
-          <span className="text-sm font-medium text-pikol-brown">{request.customer.name}</span>
+          <span className="text-sm font-medium text-pikol-brown">
+            {request.customer.name} · מבקש/ת {request.quantity === 1 ? "ניקוב אחד" : `${request.quantity} ניקובים`}
+          </span>
           <div className="flex gap-2">
             <button
               type="button"

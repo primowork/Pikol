@@ -4,30 +4,41 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import CupIcon, { type CupStatus } from "@/components/CupIcon";
 import { BUSINESS_NAME } from "@/lib/config";
-import type { ApprovalRequestState } from "@/types";
+import type { ApprovalRequestState, CustomerCardState } from "@/types";
 
 const POLL_INTERVAL_MS = 3000;
 
-type ScreenState = "creating" | "waiting" | "approved" | "declined" | "expired" | "error";
+type ScreenState =
+  | "loading"
+  | "selecting"
+  | "creating"
+  | "waiting"
+  | "approved"
+  | "declined"
+  | "expired"
+  | "error";
 
 /**
  * יעד ה-QR הקבוע שמוצג בדוכן עצמו (לא ה-QR האישי שבכרטיס). לקוח שכבר
- * נרשם וסרק את הקוד מגיע לכאן, מזהה את עצמו מ-localStorage (אותו מפתח
- * וקריאה סינכרונית ישירה כמו ב-card/page.tsx הקיים), ויוצר בקשת אישור
- * ששולחת Web Push לצוות.
+ * נרשם וסרק את הקוד מגיע לכאן, מזהה את עצמו מ-localStorage, בוחר כמה
+ * ניקובים לבקש (הקשה על כוסות בכרטיס - בדיוק כמו בחירת דירוג), ורק
+ * בלחיצה על כפתור אישור שולח את הבקשה בפועל ששולחת Web Push לצוות.
  *
  * קריאת ה-localStorage וה-redirect נשארים בדיוק כמו התבנית הקיימת
  * והמאומתת ב-card/page.tsx (effect סינכרוני חד-פעמי, לא useSyncExternalStore -
- * זה נמנע ממרוץ מול resync של hydration שעלול לגרום ל-redirect שגוי
- * לפני שהערך האמיתי מסונכרן). setCustomerId נקרא בתוך הפונקציה
- * המקוננת (כמו setScreen למטה), לא ישירות בגוף ה-effect.
+ * נמנע ממרוץ מול resync של hydration). כל setState נקרא בתוך פונקציה
+ * מקוננת (א-סינכרונית או handler), לא ישירות בגוף effect.
  */
 export default function ScanPage() {
   const router = useRouter();
   const [customerId, setCustomerId] = useState<string | null>(null);
-  const [screen, setScreen] = useState<ScreenState>("creating");
+  const [customerState, setCustomerState] = useState<CustomerCardState | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState(0);
+  const [screen, setScreen] = useState<ScreenState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [justApprovedAt, setJustApprovedAt] = useState<number | null>(null);
   const requestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -45,27 +56,21 @@ export default function ScanPage() {
 
     let cancelled = false;
 
-    async function createRequest() {
-      setCustomerId(storedId);
-
+    async function loadCustomer() {
       try {
-        const res = await fetch("/api/approval-requests", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerId: storedId }),
-        });
-        const data = await res.json();
-
+        const res = await fetch(`/api/customers/${storedId}`, { cache: "no-store" });
         if (cancelled) return;
 
         if (!res.ok) {
-          setErrorMessage(data.error ?? "משהו השתבש, נסו שוב");
+          setErrorMessage("לא נמצא כרטיס - אפשר להיכנס מחדש");
           setScreen("error");
           return;
         }
 
-        requestIdRef.current = data.approvalRequestId;
-        setScreen("waiting");
+        const data: CustomerCardState = await res.json();
+        setCustomerId(storedId);
+        setCustomerState(data);
+        setScreen("selecting");
       } catch {
         if (cancelled) return;
         setErrorMessage("בעיית תקשורת - נסו שוב");
@@ -73,7 +78,7 @@ export default function ScanPage() {
       }
     }
 
-    createRequest();
+    loadCustomer();
     return () => {
       cancelled = true;
     };
@@ -95,11 +100,14 @@ export default function ScanPage() {
 
         if (data.status === "PENDING") return;
 
-        if (data.status === "APPROVED" && typeof navigator !== "undefined" && "vibrate" in navigator) {
-          try {
-            navigator.vibrate(200);
-          } catch {
-            // best effort
+        if (data.status === "APPROVED") {
+          setJustApprovedAt(Date.now());
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+            try {
+              navigator.vibrate(200);
+            } catch {
+              // best effort
+            }
           }
         }
 
@@ -116,6 +124,52 @@ export default function ScanPage() {
     };
   }, [screen]);
 
+  async function handleConfirm() {
+    if (!customerId || selectedQuantity < 1) return;
+    setScreen("creating");
+
+    try {
+      const res = await fetch("/api/approval-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId, quantity: selectedQuantity }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMessage(data.error ?? "משהו השתבש, נסו שוב");
+        setScreen("error");
+        return;
+      }
+
+      requestIdRef.current = data.approvalRequestId;
+      setScreen("waiting");
+    } catch {
+      setErrorMessage("בעיית תקשורת - נסו שוב");
+      setScreen("error");
+    }
+  }
+
+  function handleRetry() {
+    setSelectedQuantity(0);
+    setScreen("selecting");
+  }
+
+  const stampsRequired = customerState?.stampsRequired ?? 10;
+  const currentStamps = customerState?.currentStamps ?? 0;
+  const filledInRound = currentStamps === 0 ? 0 : ((currentStamps - 1) % stampsRequired) + 1;
+  const canSelect = screen === "selecting" && !customerState?.rewardsAvailable;
+
+  function cupStatus(index: number): CupStatus {
+    if (index < filledInRound) return "filled";
+    if (index < filledInRound + selectedQuantity) {
+      return screen === "approved" ? "filled" : "pending";
+    }
+    return "empty";
+  }
+
+  const showGrid = customerState && !customerState.rewardsAvailable;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-4 py-8 text-center">
       <Logo size={96} priority />
@@ -123,23 +177,71 @@ export default function ScanPage() {
         <h1 className="text-xl font-bold text-pikol-brown">{BUSINESS_NAME}</h1>
       </div>
 
-      {screen === "creating" && <p className="text-pikol-brown/70">רק רגע…</p>}
+      {screen === "loading" && <p className="text-pikol-brown/70">רק רגע…</p>}
 
-      {screen === "waiting" && (
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-pulse rounded-full border-4 border-pikol-teal/30 border-t-pikol-teal" />
-          <p className="text-lg font-semibold text-pikol-brown">ממתינים לאישור בעל הקפה…</p>
-          <p className="text-sm text-pikol-brown/60">אל תסגרו את המסך הזה</p>
-        </div>
-      )}
-
-      {screen === "approved" && (
+      {customerState?.rewardsAvailable && (screen === "selecting" || screen === "error") && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-pikol-gold bg-pikol-gold/15 p-6">
-          <p className="text-lg font-semibold text-pikol-brown">הניקוב אושר! ☕️</p>
+          <p className="text-lg font-semibold text-pikol-brown">מגיע לכם משקה חינם! 🎉</p>
+          <p className="text-sm text-pikol-brown/70">דברו עם הצוות בקופה למימוש - אין צורך בעוד ניקובים כרגע.</p>
           {customerId && (
             <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
               לצפייה בכרטיס שלי
             </Link>
+          )}
+        </div>
+      )}
+
+      {showGrid && (screen === "selecting" || screen === "creating" || screen === "waiting" || screen === "approved") && (
+        <div className="w-full rounded-3xl border-2 border-pikol-tan/40 bg-white/60 p-6 shadow-sm">
+          <div className="grid grid-cols-5 gap-3">
+            {Array.from({ length: stampsRequired }).map((_, index) => (
+              <div key={index} className="flex justify-center">
+                <CupIcon
+                  status={cupStatus(index)}
+                  justStamped={screen === "approved" && justApprovedAt !== null && index >= filledInRound && index < filledInRound + selectedQuantity}
+                  onClick={canSelect && index >= filledInRound ? () => setSelectedQuantity(index - filledInRound + 1) : undefined}
+                />
+              </div>
+            ))}
+          </div>
+
+          {screen === "selecting" && (
+            <p className="mt-4 text-sm text-pikol-brown/70">
+              {selectedQuantity > 0
+                ? `נבחרו ${selectedQuantity} ${selectedQuantity === 1 ? "ניקוב" : "ניקובים"} - הקישו על כוס כדי לשנות`
+                : "כמה קפות קניתם? הקישו על אחת הכוסות הריקות"}
+            </p>
+          )}
+
+          {screen === "selecting" && selectedQuantity > 0 && (
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="mt-4 w-full rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream"
+            >
+              בקשת {selectedQuantity === 1 ? "ניקוב" : `${selectedQuantity} ניקובים`} לאישור
+            </button>
+          )}
+
+          {screen === "creating" && <p className="mt-4 text-sm text-pikol-brown/60">שולח בקשה…</p>}
+
+          {screen === "waiting" && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <div className="h-8 w-8 animate-pulse rounded-full border-4 border-pikol-teal/30 border-t-pikol-teal" />
+              <p className="font-semibold text-pikol-brown">ממתינים לאישור בעל הקפה…</p>
+              <p className="text-xs text-pikol-brown/60">אל תסגרו את המסך הזה</p>
+            </div>
+          )}
+
+          {screen === "approved" && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="font-semibold text-pikol-brown">הניקוב אושר! ☕️</p>
+              {customerId && (
+                <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
+                  לצפייה בכרטיס שלי
+                </Link>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -147,26 +249,22 @@ export default function ScanPage() {
       {screen === "declined" && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-pikol-tan/40 bg-white/60 p-6">
           <p className="text-pikol-brown">הבקשה נדחתה. אפשר לפנות לבעל הקפה בקופה.</p>
-          {customerId && (
-            <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
-              לצפייה בכרטיס שלי
-            </Link>
-          )}
+          <button type="button" onClick={handleRetry} className="text-sm text-pikol-teal underline">
+            לנסות שוב
+          </button>
         </div>
       )}
 
       {screen === "expired" && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-pikol-tan/40 bg-white/60 p-6">
-          <p className="text-pikol-brown">הבקשה פגה תוקף. אפשר לסרוק את הקוד בדוכן שוב.</p>
-          {customerId && (
-            <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
-              לצפייה בכרטיס שלי
-            </Link>
-          )}
+          <p className="text-pikol-brown">הבקשה פגה תוקף. אפשר לבקש שוב.</p>
+          <button type="button" onClick={handleRetry} className="text-sm text-pikol-teal underline">
+            לנסות שוב
+          </button>
         </div>
       )}
 
-      {screen === "error" && (
+      {screen === "error" && !customerState?.rewardsAvailable && (
         <p className="text-sm text-red-700">{errorMessage ?? "משהו השתבש, נסו שוב"}</p>
       )}
     </main>

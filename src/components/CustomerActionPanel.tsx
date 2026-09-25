@@ -66,7 +66,7 @@ export default function CustomerActionPanel({
       <div className="mt-3 grid grid-cols-5 gap-2">
         {Array.from({ length: STAMPS_REQUIRED }).map((_, index) => (
           <div key={index} className="flex justify-center">
-            <CupIcon filled={index < filledInRound} size={32} />
+            <CupIcon status={index < filledInRound ? "filled" : "empty"} size={32} />
           </div>
         ))}
       </div>
