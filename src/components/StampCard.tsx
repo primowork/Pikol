@@ -234,6 +234,10 @@ export default function StampCard({
       />
 
       <InstallPrompt />
+
+      <Link href="/staff/login" className="text-xs text-pikol-brown/40 underline">
+        כניסת צוות
+      </Link>
     </main>
   );
 }
