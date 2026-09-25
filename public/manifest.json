@@ -25,5 +25,19 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "בקשת ניקוב",
+      "short_name": "ניקוב",
+      "description": "בקשת ניקוב לקנייה חדשה",
+      "url": "/scan"
+    },
+    {
+      "name": "הכרטיס שלי",
+      "short_name": "כרטיס",
+      "description": "צפייה בכרטיס הניקוב שלי",
+      "url": "/card"
+    }
   ]
 }
