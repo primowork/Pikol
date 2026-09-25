@@ -51,7 +51,14 @@ export async function POST(request: NextRequest) {
       data: { customerId, quantity },
     });
 
-    await sendApprovalPush(approvalRequest.id, customer.name, quantity);
+    try {
+      await sendApprovalPush(approvalRequest.id, customer.name, quantity);
+    } catch (err) {
+      // הבקשה כבר נשמרה בהצלחה - כשל בשליחת ה-push (VAPID לא מוגדר,
+      // תקלת רשת וכו') לא אמור להיכשל ללקוח. PendingApprovalsList
+      // בדשבורד הוא בדיוק ה-fallback הקיים למקרה שההתראה לא מגיעה.
+      console.error("שליחת Web Push לבקשת אישור נכשלה, הבקשה עצמה נשמרה:", err);
+    }
 
     return NextResponse.json(
       { approvalRequestId: approvalRequest.id, quantity: approvalRequest.quantity },
