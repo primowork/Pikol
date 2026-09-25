@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Logo from "./Logo";
 import CupIcon from "./CupIcon";
 import InstallPrompt from "./InstallPrompt";
@@ -140,9 +141,17 @@ export default function StampCard({
           הראו את הקוד הזה לבעל הקפה בכל קנייה כדי לקבל ניקוב
         </p>
         <p className="text-xs text-pikol-brown/40">
-          הקוד הזה מיועד לצוות לסרוק בקופה. לבקש ניקוב בעצמכם - סרקו עם
-          מצלמת הטלפון את הקוד המוצג בדוכן.
+          הקוד הזה מיועד לצוות לסרוק בקופה. לבקש ניקוב בעצמכם בלי מצלמה -
+          אתם כבר מזוהים, פשוט לחצו למטה.
         </p>
+        {!rewardsAvailable && (
+          <Link
+            href="/scan"
+            className="mt-1 w-full rounded-full border-2 border-pikol-teal px-4 py-2 text-sm font-semibold text-pikol-teal"
+          >
+            בקשת ניקוב לקנייה נוספת
+          </Link>
+        )}
       </div>
 
       {rewardsEarned > 0 && (
