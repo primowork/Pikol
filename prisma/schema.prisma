@@ -27,8 +27,18 @@ enum ApprovalStatus {
   DECLINED
 }
 
+enum ApprovalRequestKind {
+  STAMP
+  REDEEM
+}
+
 // לקוח שנרשם למועדון. currentStamps הוא מקור האמת היחיד למספר הניקובים -
 // הוא נכתב אך ורק דרך /api/stamps, לעולם לא ישירות מקלט של הלקוח.
+//
+// שדות הסכמה (termsAccepted/marketingOptIn/consentedAt/consentIp): נשמרים
+// רק בהצטרפות לקוח חדש (POST /api/customers, כשנשלח גם name) - לקוח קיים
+// שחוזר לא "מסכים" שוב בכל כניסה. consentedAt מתעדכן שוב אם הלקוח מסמן
+// הסכמת שיווק מאוחר יותר (למשל בפופ-אפ יום ההולדת) אחרי שסירב בהצטרפות.
 model Customer {
   id                        String                     @id @default(cuid())
   name                      String
@@ -36,6 +46,10 @@ model Customer {
   birthday                  DateTime?                  @db.Date
   currentStamps             Int                        @default(0)
   rewardsEarned             Int                        @default(0)
+  termsAccepted             Boolean                    @default(false)
+  marketingOptIn            Boolean                    @default(false)
+  consentedAt               DateTime?
+  consentIp                 String?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   stampEvents               StampEvent[]
@@ -80,11 +94,12 @@ model StampEvent {
 // POST /api/approval-requests/[id]/approve, שדורש session מאומת של staff -
 // staffId נגזר משם בדיוק כמו ב-POST /api/stamps הקיים, לעולם לא מהבקשה.
 model ApprovalRequest {
-  id                 String         @id @default(cuid())
+  id                 String              @id @default(cuid())
   customerId         String
-  status             ApprovalStatus @default(PENDING)
-  quantity           Int            @default(1)
-  createdAt          DateTime       @default(now())
+  status             ApprovalStatus      @default(PENDING)
+  kind               ApprovalRequestKind @default(STAMP)
+  quantity           Int                 @default(1)
+  createdAt          DateTime            @default(now())
   respondedAt        DateTime?
   respondedByStaffId String?
 

@@ -5,16 +5,20 @@ import { useState, type FormEvent } from "react";
 interface BirthdayGiftProps {
   customerId: string;
   initialBirthday: string | null;
+  marketingOptIn: boolean;
 }
 
 /**
  * איקון מתנה קבוע בפינת המסך - בלחיצה נפתח פופ-אפ שמבטיח קפה חינם
  * ביום ההולדת ואוסף את התאריך. אפשר לפתוח שוב כדי לעדכן תאריך שכבר
- * נשמר (input מתמלא מראש מ-initialBirthday).
+ * נשמר (input מתמלא מראש מ-initialBirthday). אם הלקוח עדיין לא הסכים
+ * לדיוור שיווקי (marketingOptIn), מוצגת כאן תיבת הסכמה ייעודית ליום
+ * הולדת - הזדמנות נוספת להסכים בלי לחזור על כל טופס ההצטרפות.
  */
-export default function BirthdayGift({ customerId, initialBirthday }: BirthdayGiftProps) {
+export default function BirthdayGift({ customerId, initialBirthday, marketingOptIn }: BirthdayGiftProps) {
   const [open, setOpen] = useState(false);
   const [birthday, setBirthday] = useState(initialBirthday ?? "");
+  const [birthdayMarketingOptIn, setBirthdayMarketingOptIn] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   async function handleSubmit(event: FormEvent) {
@@ -26,7 +30,10 @@ export default function BirthdayGift({ customerId, initialBirthday }: BirthdayGi
       const res = await fetch(`/api/customers/${customerId}/birthday`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ birthday }),
+        body: JSON.stringify({
+          birthday,
+          ...(marketingOptIn ? {} : { marketingOptIn: birthdayMarketingOptIn }),
+        }),
       });
 
       if (!res.ok) {
@@ -67,6 +74,22 @@ export default function BirthdayGift({ customerId, initialBirthday }: BirthdayGi
                 onChange={(event) => setBirthday(event.target.value)}
                 className="rounded-xl border border-pikol-tan/50 px-4 py-3 text-center text-pikol-brown"
               />
+
+              {!marketingOptIn && (
+                <div className="text-right text-xs text-pikol-brown/70">
+                  <p>למה אנחנו מבקשים את זה? כדי שנוכל לפנק אותך בהטבה יום הולדת מיוחדת! 🎈</p>
+                  <label className="mt-1 flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={birthdayMarketingOptIn}
+                      onChange={(event) => setBirthdayMarketingOptIn(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>אני מאשר/ת לשלוח לי ברכות והטבות יום הולדת ייעודיות.</span>
+                  </label>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={status === "saving"}

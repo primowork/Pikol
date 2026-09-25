@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { stampActionSchema } from "@/lib/validation";
-import { STAMPS_REQUIRED } from "@/lib/config";
-import { handleApiError, ValidationError, NotFoundError } from "@/lib/errors";
-import { addStampForCustomer } from "@/lib/stamp-actions";
+import { handleApiError, ValidationError } from "@/lib/errors";
+import { addStampForCustomer, redeemForCustomer } from "@/lib/stamp-actions";
 
 /**
  * הפעולה הביטחונית המרכזית של כל המערכת: הוספה/מימוש ניקוב. staff בלבד.
@@ -25,31 +24,10 @@ export async function POST(request: NextRequest) {
     const { customerId, action } = parsed.data;
 
     const result = await prisma.$transaction(async (tx) => {
-      const customer = await tx.customer.findUnique({ where: { id: customerId } });
-      if (!customer) {
-        throw new NotFoundError("לקוח לא נמצא");
-      }
-
       if (action === "STAMP") {
         return addStampForCustomer(tx, customerId, staff.sub);
       }
-
-      // action === "REDEEM"
-      if (customer.currentStamps < STAMPS_REQUIRED) {
-        throw new ValidationError("אין מספיק ניקובים למימוש הפרס");
-      }
-
-      const updatedCustomer = await tx.customer.update({
-        where: { id: customerId },
-        data: {
-          currentStamps: { decrement: STAMPS_REQUIRED },
-          rewardsEarned: { increment: 1 },
-        },
-      });
-      const event = await tx.stampEvent.create({
-        data: { type: "REDEEM", customerId, staffId: staff.sub },
-      });
-      return { customer: updatedCustomer, event };
+      return redeemForCustomer(tx, customerId, staff.sub);
     });
 
     return NextResponse.json({

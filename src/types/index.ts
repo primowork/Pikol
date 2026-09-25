@@ -57,11 +57,13 @@ export interface ApiErrorBody {
 }
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "EXPIRED" | "DECLINED";
+export type ApprovalRequestKind = "STAMP" | "REDEEM";
 
 /** מצב בקשת האישור כפי שנצפה מ-"/scan" (polling). */
 export interface ApprovalRequestState {
   id: string;
   status: ApprovalStatus;
+  kind: ApprovalRequestKind;
   quantity: number;
   createdAt: string;
 }
@@ -70,6 +72,7 @@ export interface ApprovalRequestState {
 export interface PendingApprovalRequest {
   id: string;
   createdAt: string;
+  kind: ApprovalRequestKind;
   quantity: number;
   customer: { id: string; name: string };
 }

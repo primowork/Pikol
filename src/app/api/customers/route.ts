@@ -46,8 +46,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ existing: false, needsName: true }, { status: 200 });
     }
 
+    // IP נשמר לצורך תיעוד הסכמה בר-הוכחה (audit-ready) - תואם Railway/רוב
+    // ה-reverse proxies. null בפיתוח מקומי כשאין header - לא קריטי, לא זורק.
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const consentIp = forwardedFor?.split(",")[0]?.trim() ?? null;
+
     const customer = await prisma.customer.create({
-      data: { name: parsed.data.name, phone },
+      data: {
+        name: parsed.data.name,
+        phone,
+        termsAccepted: true,
+        marketingOptIn: parsed.data.marketingOptIn ?? false,
+        consentedAt: new Date(),
+        consentIp,
+      },
     });
 
     return NextResponse.json(

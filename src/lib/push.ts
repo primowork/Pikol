@@ -26,6 +26,7 @@ function ensureConfigured() {
 export async function sendApprovalPush(
   approvalRequestId: string,
   customerName: string,
+  kind: "STAMP" | "REDEEM",
   quantity: number
 ) {
   ensureConfigured();
@@ -35,11 +36,15 @@ export async function sendApprovalPush(
 
   // הכמות מוצגת במפורש בכותרת - כדי ש-staff יראה בדיוק כמה מבוקש ולא
   // יאשר "בעיוורון" בקשה מנופחת. יחיד/רבים בעברית: "ניקוב אחד" / "N ניקובים".
-  const quantityLabel = quantity === 1 ? "ניקוב אחד" : `${quantity} ניקובים`;
+  // עבור מימוש פרס (REDEEM) הכמות לא רלוונטית - כותרת ייעודית במקום.
+  const title =
+    kind === "REDEEM"
+      ? `בקשת מימוש פרס - ${customerName}`
+      : `בקשת ${quantity === 1 ? "ניקוב אחד" : `${quantity} ניקובים`} - ${customerName}`;
   const payload = JSON.stringify({
     kind: "approval",
     approvalRequestId,
-    title: `בקשת ${quantityLabel} - ${customerName}`,
+    title,
     body: "לחצו לאישור או דחייה",
   });
 

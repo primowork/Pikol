@@ -25,7 +25,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     await prisma.customer.update({
       where: { id },
-      data: { birthday: new Date(parsed.data.birthday) },
+      data: {
+        birthday: new Date(parsed.data.birthday),
+        ...(parsed.data.marketingOptIn ? { marketingOptIn: true, consentedAt: new Date() } : {}),
+      },
     });
 
     return NextResponse.json({ ok: true });

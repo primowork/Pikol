@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
-import { STAMP_COOLDOWN_SECONDS } from "./config";
-import { CooldownError, NotFoundError } from "./errors";
+import { STAMP_COOLDOWN_SECONDS, STAMPS_REQUIRED } from "./config";
+import { CooldownError, NotFoundError, ValidationError } from "./errors";
 
 /**
  * הלוגיקה הביטחונית המשותפת להוספת ניקוב - קרואה גם מ-POST /api/stamps
@@ -40,6 +40,39 @@ export async function addStampForCustomer(
   });
   const event = await tx.stampEvent.create({
     data: { type: "STAMP", customerId, staffId, quantity },
+  });
+  return { customer: updatedCustomer, event };
+}
+
+/**
+ * הלוגיקה הביטחונית המשותפת למימוש פרס - קרואה גם מ-POST /api/stamps
+ * (מימוש ידני דרך CustomerActionPanel) וגם מ-POST /api/approval-requests/[id]/approve
+ * (אישור בקשת מימוש מהלקוח). staffId חייב תמיד להגיע מ-requireStaff() אצל
+ * הקורא. סמנטיקה זהה לחלוטין למה שהיה קיים inline קודם: מפחית בדיוק
+ * STAMPS_REQUIRED (לא מאפס ל-0 - תומך בעודף), לא מגביל למספר "סבבים".
+ */
+export async function redeemForCustomer(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+  staffId: string
+) {
+  const customer = await tx.customer.findUnique({ where: { id: customerId } });
+  if (!customer) {
+    throw new NotFoundError("לקוח לא נמצא");
+  }
+  if (customer.currentStamps < STAMPS_REQUIRED) {
+    throw new ValidationError("אין מספיק ניקובים למימוש הפרס");
+  }
+
+  const updatedCustomer = await tx.customer.update({
+    where: { id: customerId },
+    data: {
+      currentStamps: { decrement: STAMPS_REQUIRED },
+      rewardsEarned: { increment: 1 },
+    },
+  });
+  const event = await tx.stampEvent.create({
+    data: { type: "REDEEM", customerId, staffId },
   });
   return { customer: updatedCustomer, event };
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { APPROVAL_REQUEST_TIMEOUT_SECONDS } from "@/lib/config";
-import { addStampForCustomer } from "@/lib/stamp-actions";
+import { addStampForCustomer, redeemForCustomer } from "@/lib/stamp-actions";
 import { handleApiError, ValidationError, NotFoundError, ApprovalConflictError } from "@/lib/errors";
 
 /**
@@ -39,7 +39,9 @@ export async function POST(
         throw new ApprovalConflictError();
       }
 
-      return addStampForCustomer(tx, approvalRequest.customerId, staff.sub, approvalRequest.quantity);
+      return approvalRequest.kind === "REDEEM"
+        ? redeemForCustomer(tx, approvalRequest.customerId, staff.sub)
+        : addStampForCustomer(tx, approvalRequest.customerId, staff.sub, approvalRequest.quantity);
     });
 
     return NextResponse.json({

@@ -43,6 +43,7 @@ export default function ScanPage() {
   const [justApprovedAt, setJustApprovedAt] = useState<number | null>(null);
   const [justCompletedAt, setJustCompletedAt] = useState<number | null>(null);
   const [greeting, setGreeting] = useState<string | null>(null);
+  const [activeKind, setActiveKind] = useState<"STAMP" | "REDEEM">("STAMP");
   const requestIdRef = useRef<string | null>(null);
   const stampsRequired = customerState?.stampsRequired ?? 10;
   const currentStamps = customerState?.currentStamps ?? 0;
@@ -115,11 +116,11 @@ export default function ScanPage() {
 
         if (data.status === "APPROVED") {
           setJustApprovedAt(Date.now());
-          const willComplete = currentStamps + selectedQuantity >= stampsRequired;
+          const willComplete = activeKind === "STAMP" && currentStamps + selectedQuantity >= stampsRequired;
           if (willComplete) setJustCompletedAt(Date.now());
           if (typeof navigator !== "undefined" && "vibrate" in navigator) {
             try {
-              navigator.vibrate(willComplete ? [100, 50, 100, 50, 200] : 200);
+              navigator.vibrate(willComplete || activeKind === "REDEEM" ? [100, 50, 100, 50, 200] : 200);
             } catch {
               // best effort
             }
@@ -137,7 +138,7 @@ export default function ScanPage() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [screen, currentStamps, selectedQuantity, stampsRequired]);
+  }, [screen, currentStamps, selectedQuantity, stampsRequired, activeKind]);
 
   useEffect(() => {
     if (justCompletedAt === null) return;
@@ -145,15 +146,16 @@ export default function ScanPage() {
     return () => window.clearTimeout(timeout);
   }, [justCompletedAt]);
 
-  async function handleConfirm() {
-    if (!customerId || selectedQuantity < 1) return;
+  async function createApprovalRequest(kind: "STAMP" | "REDEEM", quantity: number) {
+    if (!customerId) return;
+    setActiveKind(kind);
     setScreen("creating");
 
     try {
       const res = await fetch("/api/approval-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId, quantity: selectedQuantity }),
+        body: JSON.stringify({ customerId, kind, quantity }),
       });
       const data = await res.json();
 
@@ -164,6 +166,7 @@ export default function ScanPage() {
       }
 
       requestIdRef.current = data.approvalRequestId;
+      setActiveKind(data.kind ?? kind);
       setScreen("waiting");
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         try {
@@ -212,14 +215,46 @@ export default function ScanPage() {
 
       {screen === "loading" && <p className="text-pikol-brown/70">רק רגע…</p>}
 
-      {customerState?.rewardsAvailable && (screen === "selecting" || screen === "error") && (
+      {customerState?.rewardsAvailable && screen === "selecting" && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-pikol-gold bg-pikol-gold/15 p-6">
           <p className="text-lg font-semibold text-pikol-brown">מגיע לכם משקה חינם! 🎉</p>
-          <p className="text-sm text-pikol-brown/70">דברו עם הצוות בקופה למימוש - אין צורך בעוד ניקובים כרגע.</p>
+          <p className="text-sm text-pikol-brown/70">הבריסטה צריך לאשר את המימוש - לוחצים ומחכים רגע.</p>
+          <button
+            type="button"
+            onClick={() => createApprovalRequest("REDEEM", 1)}
+            className="w-full rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream"
+          >
+            בקשת מימוש הפרס
+          </button>
           {customerId && (
             <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
               לצפייה בכרטיס שלי
             </Link>
+          )}
+        </div>
+      )}
+
+      {customerState?.rewardsAvailable && activeKind === "REDEEM" && (screen === "creating" || screen === "waiting" || screen === "approved") && (
+        <div className="flex w-full flex-col items-center gap-3 rounded-3xl border-2 border-pikol-tan/40 bg-white/60 p-6 shadow-sm">
+          {screen === "creating" && <p className="text-sm text-pikol-brown/60">שולח בקשה…</p>}
+
+          {screen === "waiting" && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-8 w-8 animate-pulse rounded-full border-4 border-pikol-teal/30 border-t-pikol-teal" />
+              <p className="font-semibold text-pikol-brown">ממתינים לאישור בעל הקפה…</p>
+              <p className="text-xs text-pikol-brown/60">אל תסגרו את המסך הזה</p>
+            </div>
+          )}
+
+          {screen === "approved" && (
+            <div className="flex flex-col items-center gap-2">
+              <p className="font-semibold text-pikol-brown">הפרס מומש! 🎉</p>
+              {customerId && (
+                <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
+                  לצפייה בכרטיס שלי
+                </Link>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -250,7 +285,7 @@ export default function ScanPage() {
           {screen === "selecting" && selectedQuantity > 0 && (
             <button
               type="button"
-              onClick={handleConfirm}
+              onClick={() => createApprovalRequest("STAMP", selectedQuantity)}
               className="mt-4 w-full rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream"
             >
               בקשת {selectedQuantity === 1 ? "ניקוב" : `${selectedQuantity} ניקובים`} לאישור
@@ -298,9 +333,7 @@ export default function ScanPage() {
         </div>
       )}
 
-      {screen === "error" && !customerState?.rewardsAvailable && (
-        <p className="text-sm text-red-700">{errorMessage ?? "משהו השתבש, נסו שוב"}</p>
-      )}
+      {screen === "error" && <p className="text-sm text-red-700">{errorMessage ?? "משהו השתבש, נסו שוב"}</p>}
     </main>
   );
 }
