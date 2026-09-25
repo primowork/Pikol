@@ -30,25 +30,26 @@ enum ApprovalStatus {
 // לקוח שנרשם למועדון. currentStamps הוא מקור האמת היחיד למספר הניקובים -
 // הוא נכתב אך ורק דרך /api/stamps, לעולם לא ישירות מקלט של הלקוח.
 model Customer {
-  id               String            @id @default(cuid())
-  name             String
-  phone            String            @unique
-  currentStamps    Int               @default(0)
-  rewardsEarned    Int               @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  stampEvents      StampEvent[]
-  approvalRequests ApprovalRequest[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  phone                     String                     @unique
+  currentStamps             Int                        @default(0)
+  rewardsEarned             Int                        @default(0)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  stampEvents               StampEvent[]
+  approvalRequests          ApprovalRequest[]
+  customerPushSubscriptions CustomerPushSubscription[]
 }
 
 // חבר צוות / בעל העסק. יכול להתחבר לדשבורד הניהול ולהוסיף ניקובים.
 model StaffUser {
-  id                String              @id @default(cuid())
-  username          String              @unique
+  id                String             @id @default(cuid())
+  username          String             @unique
   passwordHash      String
   name              String
-  role              StaffRole           @default(STAFF)
-  createdAt         DateTime            @default(now())
+  role              StaffRole          @default(STAFF)
+  createdAt         DateTime           @default(now())
   stampEvents       StampEvent[]
   pushSubscriptions PushSubscription[]
   approvalResponses ApprovalRequest[]
@@ -106,4 +107,21 @@ model PushSubscription {
   staff StaffUser @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@index([staffId])
+}
+
+// subscription ל-Web Push של לקוח (opt-in) - מודל נפרד מ-PushSubscription
+// של הצוות כי הזהות/הרשאה שונות לגמרי: לקוח מזוהה ע"י ה-cuid הבלתי-נחוש
+// שלו (כמו בכל endpoint ציבורי אחר), לא ע"י session מאומת. משמש לשידורים
+// ידניים מהצוות (BroadcastToCustomers) ובעתיד לקמפיינים אוטומטיים.
+model CustomerPushSubscription {
+  id         String   @id @default(cuid())
+  customerId String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }

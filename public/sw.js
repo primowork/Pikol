@@ -80,7 +80,11 @@ self.addEventListener("push", (event) => {
     data = {};
   }
 
-  const title = data.title || "בקשת ניקוב חדשה";
+  // שני סוגי push חולקים את אותו endpoint: "approval" (בקשת ניקוב מ-/scan,
+  // צריכה כפתורי אישור/דחייה) ו-"broadcast" (הודעה ללקוחות, בלי פעולות -
+  // ראו BroadcastToCustomers.tsx). ברירת מחדל "approval" לתאימות לאחור.
+  const isBroadcast = data.kind === "broadcast";
+  const title = data.title || (isBroadcast ? "קפה פיקולו" : "בקשת ניקוב חדשה");
   const options = {
     body: data.body || "לקוח מבקש ניקוב - לחצו לאישור",
     icon: "/icons/icon-192.png",
@@ -88,13 +92,15 @@ self.addEventListener("push", (event) => {
     dir: "rtl",
     lang: "he",
     tag: data.approvalRequestId ? `approval-${data.approvalRequestId}` : undefined,
-    data: { approvalRequestId: data.approvalRequestId },
-    actions: [
+    data: { kind: data.kind || "approval", approvalRequestId: data.approvalRequestId },
+    requireInteraction: !isBroadcast,
+  };
+  if (!isBroadcast) {
+    options.actions = [
       { action: "approve", title: "אישור" },
       { action: "decline", title: "דחייה" },
-    ],
-    requireInteraction: true,
-  };
+    ];
+  }
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -102,10 +108,10 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const approvalRequestId = event.notification.data && event.notification.data.approvalRequestId;
-  if (!approvalRequestId) return;
+  const notifData = event.notification.data || {};
+  const approvalRequestId = notifData.approvalRequestId;
 
-  if (event.action === "approve" || event.action === "decline") {
+  if ((event.action === "approve" || event.action === "decline") && approvalRequestId) {
     const endpoint = `/api/approval-requests/${approvalRequestId}/${event.action}`;
     event.waitUntil(
       fetch(endpoint, { method: "POST", credentials: "include" })
@@ -137,16 +143,18 @@ self.addEventListener("notificationclick", (event) => {
     return;
   }
 
-  // לחיצה על גוף ההתראה עצמו (לא על action) - פותח/ממקד את הדשבורד.
+  // לחיצה על גוף ההתראה עצמו - פותח/ממקד את היעד המתאים: הודעת שידור
+  // ללקוחות פותחת את הכרטיס האישי, בקשת ניקוב פותחת את דשבורד הצוות.
+  const targetPath = notifData.kind === "broadcast" ? "/card" : "/staff/dashboard";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsList) => {
       for (const client of clientsList) {
-        if (client.url.includes("/staff/dashboard") && "focus" in client) {
+        if (client.url.includes(targetPath) && "focus" in client) {
           return client.focus();
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow("/staff/dashboard");
+        return self.clients.openWindow(targetPath);
       }
     })
   );
