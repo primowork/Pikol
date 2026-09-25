@@ -7,6 +7,7 @@ import Logo from "./Logo";
 import CupIcon from "./CupIcon";
 import QrScanner from "./QrScanner";
 import Confetti from "./Confetti";
+import NotificationSubscribe from "./NotificationSubscribe";
 import InstallPrompt from "./InstallPrompt";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import type { CustomerCardState } from "@/types";
@@ -17,6 +18,7 @@ interface StampCardProps {
   initialStamps: number;
   stampsRequired: number;
   initialRewardsEarned: number;
+  vapidPublicKey: string;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -27,6 +29,7 @@ export default function StampCard({
   initialStamps,
   stampsRequired,
   initialRewardsEarned,
+  vapidPublicKey,
 }: StampCardProps) {
   const router = useRouter();
   const [stamps, setStamps] = useState(initialStamps);
@@ -221,6 +224,14 @@ export default function StampCard({
           סה&quot;כ מימשתם {rewardsEarned} משקאות חינם עד היום
         </p>
       )}
+
+      <NotificationSubscribe
+        vapidPublicKey={vapidPublicKey}
+        subscribeUrl={`/api/customers/${customerId}/push-subscription`}
+        buttonLabel="הפעלת התראות על מבצעים ועדכונים"
+        subscribedLabel="התראות פעילות במכשיר הזה"
+        unsupportedLabel="התראות לא נתמכות בדפדפן הזה."
+      />
 
       <InstallPrompt />
     </main>

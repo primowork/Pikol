@@ -48,3 +48,9 @@ export const pushSubscriptionSchema = z.object({
 export const pushUnsubscribeSchema = z.object({
   endpoint: z.string().trim().min(1, "endpoint חסר"),
 });
+
+/** שידור ידני מהצוות לכל הלקוחות שנרשמו להתראות (opt-in). */
+export const broadcastSchema = z.object({
+  title: z.string().trim().min(1, "כותרת חסרה").max(80, "כותרת ארוכה מדי"),
+  body: z.string().trim().min(1, "תוכן חסר").max(200, "תוכן ארוך מדי"),
+});

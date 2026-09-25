@@ -10,6 +10,7 @@ import CustomerActionPanel from "@/components/CustomerActionPanel";
 import ActivityFeed from "@/components/ActivityFeed";
 import NotificationSubscribe from "@/components/NotificationSubscribe";
 import PendingApprovalsList from "@/components/PendingApprovalsList";
+import BroadcastToCustomers from "@/components/BroadcastToCustomers";
 import { BUSINESS_NAME } from "@/lib/config";
 import type { ActiveCustomer, CustomerSearchResult, CustomerCardState } from "@/types";
 
@@ -104,8 +105,15 @@ export default function DashboardClient({ staffName, vapidPublicKey }: Dashboard
         </Link>
       </div>
 
-      <NotificationSubscribe vapidPublicKey={vapidPublicKey} />
+      <NotificationSubscribe
+        vapidPublicKey={vapidPublicKey}
+        subscribeUrl="/api/push-subscriptions"
+        buttonLabel="הפעלת התראות בקשות ניקוב"
+        subscribedLabel="התראות פעילות במכשיר הזה"
+        unsupportedLabel='התראות לא נתמכות בדפדפן הזה - אפשר עדיין לאשר בקשות ברשימת "בקשות ממתינות" למטה.'
+      />
       <PendingApprovalsList onApproved={handleUpdated} />
+      <BroadcastToCustomers />
 
       {activeCustomer ? (
         <CustomerActionPanel

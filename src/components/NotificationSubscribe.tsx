@@ -4,6 +4,11 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 interface NotificationSubscribeProps {
   vapidPublicKey: string;
+  /** לאן נשלח POST {subscription} - שונה בין צוות (session) ללקוח (id בנתיב). */
+  subscribeUrl: string;
+  buttonLabel: string;
+  subscribedLabel: string;
+  unsupportedLabel: string;
 }
 
 type SubscribeState = "idle" | "subscribing" | "subscribed" | "denied" | "error";
@@ -33,15 +38,21 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * כפתור "הפעלת התראות" בדשבורד - נרשם ל-Web Push כדי לקבל התראת "בקשת
- * ניקוב" מ-"/scan". אם הדפדפן לא תומך, מציג הסבר בלבד - PendingApprovalsList
- * ממשיך לעבוד כ-fallback מלא בלי תלות בזה.
+ * כפתור "הפעלת התראות" גנרי - נרשם ל-Web Push. משמש גם את הצוות (התראות
+ * בקשת ניקוב מ-"/scan") וגם את הלקוח (עדכונים/מבצעים מבעל העסק), רק עם
+ * subscribeUrl וטקסטים שונים - ה-URL הוא מה שקובע מי בפועל נרשם.
  *
  * isSupported דרך useSyncExternalStore (לא useState+useEffect) - כי
  * serviceWorker/PushManager לא קיימים בזמן server render, וזה גם נמנע
  * מ-setState סינכרוני בגוף ה-effect (בדיוק כמו InstallPrompt.tsx).
  */
-export default function NotificationSubscribe({ vapidPublicKey }: NotificationSubscribeProps) {
+export default function NotificationSubscribe({
+  vapidPublicKey,
+  subscribeUrl,
+  buttonLabel,
+  subscribedLabel,
+  unsupportedLabel,
+}: NotificationSubscribeProps) {
   const isSupported = useSyncExternalStore(
     subscribeNoop,
     getPushSupportSnapshot,
@@ -82,7 +93,7 @@ export default function NotificationSubscribe({ vapidPublicKey }: NotificationSu
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
 
-      const res = await fetch("/api/push-subscriptions", {
+      const res = await fetch(subscribeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subscription: subscription.toJSON() }),
@@ -102,7 +113,7 @@ export default function NotificationSubscribe({ vapidPublicKey }: NotificationSu
   if (!isSupported) {
     return (
       <p className="w-full rounded-xl border border-pikol-tan/40 bg-white/60 p-3 text-xs text-pikol-brown/60">
-        התראות לא נתמכות בדפדפן הזה - אפשר עדיין לאשר בקשות ברשימת &quot;בקשות ממתינות&quot; למטה.
+        {unsupportedLabel}
       </p>
     );
   }
@@ -110,7 +121,7 @@ export default function NotificationSubscribe({ vapidPublicKey }: NotificationSu
   if (state === "subscribed") {
     return (
       <p className="w-full rounded-xl border border-pikol-teal/40 bg-pikol-teal/10 p-3 text-center text-sm text-pikol-brown">
-        התראות פעילות במכשיר הזה ✓
+        {subscribedLabel} ✓
       </p>
     );
   }
@@ -123,7 +134,7 @@ export default function NotificationSubscribe({ vapidPublicKey }: NotificationSu
         disabled={state === "subscribing"}
         className="w-full rounded-full border border-pikol-teal px-4 py-2 text-sm font-semibold text-pikol-teal disabled:opacity-60"
       >
-        {state === "subscribing" ? "מפעיל…" : "הפעלת התראות בקשות ניקוב"}
+        {state === "subscribing" ? "מפעיל…" : buttonLabel}
       </button>
       {state === "denied" && (
         <p className="mt-1 text-xs text-red-700">

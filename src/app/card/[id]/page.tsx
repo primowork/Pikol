@@ -22,6 +22,7 @@ export default async function CardPage({
       initialStamps={customer.currentStamps}
       stampsRequired={STAMPS_REQUIRED}
       initialRewardsEarned={customer.rewardsEarned}
+      vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ""}
     />
   );
 }
