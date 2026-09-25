@@ -9,6 +9,12 @@ import type { CustomerListItem } from "@/types";
 interface CustomersDashboardClientProps {
   totalCustomers: number;
   totalStampsIssued: number;
+  activeCustomers30d: number;
+  activeRatePercent: number;
+  avgVisitsPerActiveCustomer: number;
+  peakHour: number | null;
+  peakDayLabel: string | null;
+  openRewardLiability: number;
   initialCustomers: CustomerListItem[];
 }
 
@@ -21,6 +27,12 @@ function formatDate(iso: string): string {
 export default function CustomersDashboardClient({
   totalCustomers,
   totalStampsIssued,
+  activeCustomers30d,
+  activeRatePercent,
+  avgVisitsPerActiveCustomer,
+  peakHour,
+  peakDayLabel,
+  openRewardLiability,
   initialCustomers,
 }: CustomersDashboardClientProps) {
   const [searchResults, setSearchResults] = useState<CustomerListItem[] | null>(null);
@@ -79,6 +91,28 @@ export default function CustomersDashboardClient({
         <div className="rounded-2xl border border-pikol-tan/40 bg-white/60 p-4 text-center">
           <p className="text-2xl font-semibold text-pikol-brown">{totalStampsIssued}</p>
           <p className="text-xs text-pikol-brown/60">ניקובים שהוענקו בסה&quot;כ</p>
+        </div>
+        <div className="rounded-2xl border border-pikol-tan/40 bg-white/60 p-4 text-center">
+          <p className="text-2xl font-semibold text-pikol-brown">{activeRatePercent}%</p>
+          <p className="text-xs text-pikol-brown/60">
+            לקוחות פעילים ב-30 הימים האחרונים ({activeCustomers30d} מתוך {totalCustomers})
+          </p>
+        </div>
+        <div className="rounded-2xl border border-pikol-tan/40 bg-white/60 p-4 text-center">
+          <p className="text-2xl font-semibold text-pikol-brown">{avgVisitsPerActiveCustomer.toFixed(1)}</p>
+          <p className="text-xs text-pikol-brown/60">ביקורים בממוצע לחודש ללקוח פעיל</p>
+        </div>
+        <div className="rounded-2xl border border-pikol-tan/40 bg-white/60 p-4 text-center">
+          <p className="text-2xl font-semibold text-pikol-brown">
+            {peakHour !== null ? `${peakHour}:00` : "—"}
+          </p>
+          <p className="text-xs text-pikol-brown/60">
+            {peakDayLabel ? `השעה הכי עמוסה, בעיקר ב${peakDayLabel}` : "אין עדיין מספיק נתונים"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-pikol-tan/40 bg-white/60 p-4 text-center">
+          <p className="text-2xl font-semibold text-pikol-brown">{openRewardLiability}</p>
+          <p className="text-xs text-pikol-brown/60">פרסים שממתינים למימוש כרגע</p>
         </div>
       </div>
 
