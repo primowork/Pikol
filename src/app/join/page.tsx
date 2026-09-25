@@ -5,8 +5,16 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 
+type Step = "phone" | "name";
+
+/**
+ * טופס חכם אחד שמשמש גם ככניסה וגם כהצטרפות - אין מסך "login" נפרד.
+ * שלב ראשון שולח רק טלפון: אם הוא כבר רשום, המשתמש עובר ישר לכרטיס
+ * הקיים בלי לשאול שם. אם לא - נחשף שדה שם ליצירת כרטיס חדש.
+ */
 export default function JoinPage() {
   const router = useRouter();
+  const [step, setStep] = useState<Step>("phone");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,12 +29,18 @@ export default function JoinPage() {
       const res = await fetch("/api/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone }),
+        body: JSON.stringify(step === "name" ? { name, phone } : { phone }),
       });
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.error ?? "משהו השתבש, נסו שוב");
+        setSubmitting(false);
+        return;
+      }
+
+      if (data.needsName) {
+        setStep("name");
         setSubmitting(false);
         return;
       }
@@ -48,23 +62,13 @@ export default function JoinPage() {
 
       <form onSubmit={handleSubmit} className="w-full space-y-4">
         <h2 className="text-center text-lg font-semibold text-pikol-brown">
-          הצטרפות למועדון
+          {step === "phone" ? "כניסה לכרטיס שלכם" : "כרטיס חדש - איך קוראים לכם?"}
         </h2>
-
-        <div>
-          <label htmlFor="name" className="mb-1 block text-sm font-medium text-pikol-brown">
-            שם מלא
-          </label>
-          <input
-            id="name"
-            type="text"
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="w-full rounded-xl border border-pikol-tan/50 bg-white/70 px-4 py-3 text-pikol-brown outline-none focus:border-pikol-teal"
-            placeholder="לדוגמה: דנה כהן"
-          />
-        </div>
+        {step === "phone" && (
+          <p className="text-center text-xs text-pikol-brown/60">
+            כבר יש לכם כרטיס? הזינו את אותו הטלפון ותועברו אליו ישירות.
+          </p>
+        )}
 
         <div>
           <label htmlFor="phone" className="mb-1 block text-sm font-medium text-pikol-brown">
@@ -75,12 +79,31 @@ export default function JoinPage() {
             type="tel"
             required
             dir="ltr"
+            disabled={step === "name"}
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            className="w-full rounded-xl border border-pikol-tan/50 bg-white/70 px-4 py-3 text-pikol-brown outline-none focus:border-pikol-teal"
+            className="w-full rounded-xl border border-pikol-tan/50 bg-white/70 px-4 py-3 text-pikol-brown outline-none focus:border-pikol-teal disabled:opacity-60"
             placeholder="050-1234567"
           />
         </div>
+
+        {step === "name" && (
+          <div>
+            <label htmlFor="name" className="mb-1 block text-sm font-medium text-pikol-brown">
+              שם מלא
+            </label>
+            <input
+              id="name"
+              type="text"
+              required
+              autoFocus
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="w-full rounded-xl border border-pikol-tan/50 bg-white/70 px-4 py-3 text-pikol-brown outline-none focus:border-pikol-teal"
+              placeholder="לדוגמה: דנה כהן"
+            />
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-700">{error}</p>}
 
@@ -89,7 +112,7 @@ export default function JoinPage() {
           disabled={submitting}
           className="w-full rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream disabled:opacity-60"
         >
-          {submitting ? "רק רגע…" : "יצירת הכרטיס שלי"}
+          {submitting ? "רק רגע…" : step === "phone" ? "המשך" : "יצירת הכרטיס שלי"}
         </button>
       </form>
     </main>

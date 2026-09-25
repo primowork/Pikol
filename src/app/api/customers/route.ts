@@ -5,7 +5,12 @@ import { normalizePhone } from "@/lib/phone";
 import { requireStaff } from "@/lib/auth";
 import { handleApiError, ValidationError } from "@/lib/errors";
 
-/** הרשמה למועדון - ציבורי, נקרא מ-"/join". */
+/**
+ * כניסה/הצטרפות - ציבורי, נקרא מ-"/join". טופס חכם אחד: השלב הראשון
+ * שולח רק טלפון. אם הוא כבר רשום - מחזיר את הכרטיס הקיים ישירות (אין
+ * צורך בשם, ולקוח חוזר ממכשיר חדש "נכנס" בלי שום מסך login נפרד). אם
+ * לא רשום ולא נשלח שם - מחזיר needsName כדי שה-UI יבקש שם ויקרא שוב.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null);
@@ -34,6 +39,11 @@ export async function POST(request: NextRequest) {
         },
         { status: 200 }
       );
+    }
+
+    if (!parsed.data.name) {
+      // עדיין לא נוצר כלום - רק מבקשים מה-UI לחשוף שדה שם ולשלוח שוב.
+      return NextResponse.json({ existing: false, needsName: true }, { status: 200 });
     }
 
     const customer = await prisma.customer.create({

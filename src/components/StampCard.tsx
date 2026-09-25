@@ -114,7 +114,7 @@ export default function StampCard({
           {Array.from({ length: stampsRequired }).map((_, index) => (
             <div key={index} className="flex justify-center">
               <CupIcon
-                filled={index < filledInRound}
+                status={index < filledInRound ? "filled" : "empty"}
                 justStamped={index === justStampedIndex}
               />
             </div>
@@ -138,6 +138,10 @@ export default function StampCard({
         <img src={qrDataUrl} alt="קוד QR אישי לזיהוי בקופה" width={200} height={200} />
         <p className="text-xs text-pikol-brown/60">
           הראו את הקוד הזה לבעל הקפה בכל קנייה כדי לקבל ניקוב
+        </p>
+        <p className="text-xs text-pikol-brown/40">
+          הקוד הזה מיועד לצוות לסרוק בקופה. לבקש ניקוב בעצמכם - סרקו עם
+          מצלמת הטלפון את הקוד המוצג בדוכן.
         </p>
       </div>
 

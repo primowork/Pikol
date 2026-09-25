@@ -39,7 +39,7 @@ export async function POST(
         throw new ApprovalConflictError();
       }
 
-      return addStampForCustomer(tx, approvalRequest.customerId, staff.sub);
+      return addStampForCustomer(tx, approvalRequest.customerId, staff.sub, approvalRequest.quantity);
     });
 
     return NextResponse.json({
