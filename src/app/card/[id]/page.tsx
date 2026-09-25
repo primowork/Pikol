@@ -23,6 +23,7 @@ export default async function CardPage({
       stampsRequired={STAMPS_REQUIRED}
       initialRewardsEarned={customer.rewardsEarned}
       vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ""}
+      initialBirthday={customer.birthday ? customer.birthday.toISOString().slice(0, 10) : null}
     />
   );
 }

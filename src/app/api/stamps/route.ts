@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
       events: events.map((event) => ({
         id: event.id,
         type: event.type,
+        quantity: event.quantity,
         createdAt: event.createdAt,
         customer: event.customer,
         staff: event.staff,
