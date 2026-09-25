@@ -7,6 +7,8 @@ interface CupIconProps {
   /** true רק על הכוס שזה עתה נוספה - מפעיל את אנימציית ה"הטבעה". */
   justStamped?: boolean;
   onClick?: () => void;
+  /** true על התא האחרון בכרטיס - מציג "חינם" במקום כוס, בדיוק כמו בכרטיס הפיזי המקורי. */
+  isReward?: boolean;
 }
 
 /**
@@ -15,7 +17,13 @@ interface CupIconProps {
  * ל"הגעת ליעד") אבל עם מסגרת מקווקוות ומילוי קלוש יותר, כדי שיהיה ברור
  * ויזואלית ש"זה עוד לא סופי" בלי לבלבל עם כוס שכבר אושרה בפועל.
  */
-export default function CupIcon({ status, size = 48, justStamped = false, onClick }: CupIconProps) {
+export default function CupIcon({
+  status,
+  size = 48,
+  justStamped = false,
+  onClick,
+  isReward = false,
+}: CupIconProps) {
   const filled = status === "filled";
   const pending = status === "pending";
 
@@ -31,30 +39,39 @@ export default function CupIcon({ status, size = 48, justStamped = false, onClic
       } ${justStamped ? "animate-stamp-in" : ""}`}
       style={{ width: size, height: size }}
     >
-      <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55} fill="none" aria-hidden="true">
-        <path
-          d="M7 9h10l-1.2 9.5a2 2 0 0 1-2 1.98H10.2a2 2 0 0 1-2-1.98L7 9Z"
-          fill={filled ? "var(--color-pikol-teal)" : "none"}
-          stroke={filled || pending ? "var(--color-pikol-teal)" : "var(--color-pikol-tan)"}
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeDasharray={pending ? "2 2" : undefined}
-        />
-        {filled ? (
-          <ellipse cx="12" cy="9" rx="5.2" ry="1.6" fill="var(--color-pikol-gold)" />
-        ) : (
-          <ellipse
-            cx="12"
-            cy="9"
-            rx="5.2"
-            ry="1.6"
-            fill="none"
-            stroke={pending ? "var(--color-pikol-teal)" : "var(--color-pikol-tan)"}
+      {isReward ? (
+        <span
+          className={`font-bold leading-none ${filled || pending ? "text-pikol-teal" : "text-pikol-tan"}`}
+          style={{ fontSize: size * 0.2 }}
+        >
+          חינם
+        </span>
+      ) : (
+        <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55} fill="none" aria-hidden="true">
+          <path
+            d="M7 9h10l-1.2 9.5a2 2 0 0 1-2 1.98H10.2a2 2 0 0 1-2-1.98L7 9Z"
+            fill={filled ? "var(--color-pikol-teal)" : "none"}
+            stroke={filled || pending ? "var(--color-pikol-teal)" : "var(--color-pikol-tan)"}
             strokeWidth="1.5"
+            strokeLinejoin="round"
             strokeDasharray={pending ? "2 2" : undefined}
           />
-        )}
-      </svg>
+          {filled ? (
+            <ellipse cx="12" cy="9" rx="5.2" ry="1.6" fill="var(--color-pikol-gold)" />
+          ) : (
+            <ellipse
+              cx="12"
+              cy="9"
+              rx="5.2"
+              ry="1.6"
+              fill="none"
+              stroke={pending ? "var(--color-pikol-teal)" : "var(--color-pikol-tan)"}
+              strokeWidth="1.5"
+              strokeDasharray={pending ? "2 2" : undefined}
+            />
+          )}
+        </svg>
+      )}
     </div>
   );
 }

@@ -168,6 +168,7 @@ export default function StampCard({
               <CupIcon
                 status={index < filledInRound ? "filled" : "empty"}
                 justStamped={index === justStampedIndex}
+                isReward={index === stampsRequired - 1}
               />
             </div>
           ))}

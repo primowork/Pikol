@@ -233,6 +233,7 @@ export default function ScanPage() {
                   status={cupStatus(index)}
                   justStamped={screen === "approved" && justApprovedAt !== null && index >= filledInRound && index < filledInRound + selectedQuantity}
                   onClick={canSelect && index >= filledInRound ? () => setSelectedQuantity(index - filledInRound + 1) : undefined}
+                  isReward={index === stampsRequired - 1}
                 />
               </div>
             ))}
