@@ -10,6 +10,7 @@ import Confetti from "./Confetti";
 import NotificationSubscribe from "./NotificationSubscribe";
 import InstallPrompt from "./InstallPrompt";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
+import { getTimeBasedGreeting } from "@/lib/greeting";
 import type { CustomerCardState } from "@/types";
 
 interface StampCardProps {
@@ -38,7 +39,15 @@ export default function StampCard({
   const [justCompletedAt, setJustCompletedAt] = useState<number | null>(null);
   const [scannerActive, setScannerActive] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [greeting, setGreeting] = useState<string | null>(null);
   const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    function applyGreeting() {
+      setGreeting(getTimeBasedGreeting(new Date()));
+    }
+    applyGreeting();
+  }, []);
 
   // שומר את מזהה הלקוח כדי שהאייקון במסך הבית ("/card" הכללי, ה-start_url
   // הגלובלי של ה-PWA) ידע בפעם הבאה לאן להפנות.
@@ -139,7 +148,7 @@ export default function StampCard({
       </div>
 
       <p className="text-lg">
-        שלום <span className="font-semibold">{initialName}</span>, הנה הכרטיס שלך
+        {greeting ?? "שלום"} <span className="font-semibold">{initialName}</span>, הנה הכרטיס שלך
       </p>
 
       <div
