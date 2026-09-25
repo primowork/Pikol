@@ -22,6 +22,7 @@ interface StampCardProps {
   initialRewardsEarned: number;
   vapidPublicKey: string;
   initialBirthday: string | null;
+  marketingOptIn: boolean;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -34,6 +35,7 @@ export default function StampCard({
   initialRewardsEarned,
   vapidPublicKey,
   initialBirthday,
+  marketingOptIn,
 }: StampCardProps) {
   const router = useRouter();
   const [stamps, setStamps] = useState(initialStamps);
@@ -142,7 +144,7 @@ export default function StampCard({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 px-4 py-8 text-center">
-      <BirthdayGift customerId={customerId} initialBirthday={initialBirthday} />
+      <BirthdayGift customerId={customerId} initialBirthday={initialBirthday} marketingOptIn={marketingOptIn} />
       <Confetti active={justCompletedAt !== null} />
       <Logo size={96} priority />
 

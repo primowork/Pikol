@@ -13,6 +13,10 @@ function quantityLabel(quantity: number): string {
   return quantity === 1 ? "ניקוב אחד" : `${quantity} ניקובים`;
 }
 
+function requestLabel(request: PendingApprovalRequest): string {
+  return request.kind === "REDEEM" ? "מבקש/ת לממש את הפרס" : `מבקש/ת ${quantityLabel(request.quantity)}`;
+}
+
 /**
  * בקשות אישור ממתינות: רשימה קומפקטית (fallback למקרה שההתראה עצמה לא
  * הגיעה) ומעליה פופ-אפ מסך מלא עם כפתורי ענק - הצוות עובד בלחץ ליד
@@ -93,7 +97,7 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
         )}
 
         <p className="text-4xl font-bold text-pikol-cream">{nextRequest.customer.name}</p>
-        <p className="text-xl text-pikol-cream/90">מבקש/ת {quantityLabel(nextRequest.quantity)}</p>
+        <p className="text-xl text-pikol-cream/90">{requestLabel(nextRequest)}</p>
 
         <div className="mt-4 flex w-full max-w-sm flex-col gap-3">
           <button
@@ -123,7 +127,7 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
             className="flex items-center justify-between gap-2 rounded-xl border border-pikol-gold/50 bg-pikol-gold/10 p-3"
           >
             <span className="text-sm font-medium text-pikol-brown">
-              {request.customer.name} · מבקש/ת {quantityLabel(request.quantity)}
+              {request.customer.name} · {requestLabel(request)}
             </span>
             <div className="flex gap-2">
               <button

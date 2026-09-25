@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Logo from "@/components/Logo";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 
@@ -10,13 +11,17 @@ type Step = "phone" | "name";
 /**
  * טופס חכם אחד שמשמש גם ככניסה וגם כהצטרפות - אין מסך "login" נפרד.
  * שלב ראשון שולח רק טלפון: אם הוא כבר רשום, המשתמש עובר ישר לכרטיס
- * הקיים בלי לשאול שם. אם לא - נחשף שדה שם ליצירת כרטיס חדש.
+ * הקיים בלי לשאול שם. אם לא - נחשף שדה שם ליצירת כרטיס חדש, יחד עם
+ * הסכמה לתנאי השימוש/מדיניות הפרטיות (חובה) והסכמה לדיוור (אופציונלי) -
+ * לקוח קיים שחוזר לא מתבקש להסכים שוב.
  */
 export default function JoinPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("phone");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,7 +34,9 @@ export default function JoinPage() {
       const res = await fetch("/api/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(step === "name" ? { name, phone } : { phone }),
+        body: JSON.stringify(
+          step === "name" ? { name, phone, termsAccepted, marketingOptIn } : { phone }
+        ),
       });
       const data = await res.json();
 
@@ -105,11 +112,47 @@ export default function JoinPage() {
           </div>
         )}
 
+        {step === "name" && (
+          <div className="space-y-2 text-sm text-pikol-brown">
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                required
+                checked={termsAccepted}
+                onChange={(event) => setTermsAccepted(event.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                אני מאשר/ת את{" "}
+                <Link href="/terms" target="_blank" className="text-pikol-teal underline">
+                  תנאי השימוש
+                </Link>{" "}
+                ו
+                <Link href="/privacy" target="_blank" className="text-pikol-teal underline">
+                  מדיניות הפרטיות
+                </Link>
+                , ומסכים/ה לשמירת פרטיי במאגר המידע של {BUSINESS_NAME}.
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={marketingOptIn}
+                onChange={(event) => setMarketingOptIn(event.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                מאשר/ת קבלת עדכונים, הטבות מותאמות אישית ומבצעים מבית הקפה (ניתן להסיר בכל עת).
+              </span>
+            </label>
+          </div>
+        )}
+
         {error && <p className="text-sm text-red-700">{error}</p>}
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || (step === "name" && !termsAccepted)}
           className="w-full rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream disabled:opacity-60"
         >
           {submitting ? "רק רגע…" : step === "phone" ? "המשך" : "יצירת הכרטיס שלי"}

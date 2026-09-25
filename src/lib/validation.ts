@@ -4,12 +4,20 @@ import { STAMPS_REQUIRED } from "./config";
 /**
  * טופס "כניסה/הצטרפות" חכם אחד ("/join"): תמיד שולח טלפון; שם אופציונלי -
  * הצעד הראשון שולח רק טלפון כדי לבדוק אם הלקוח כבר קיים, ורק אם לא
- * (needsName בתשובה) הצעד השני שולח גם שם ליצירת כרטיס חדש.
+ * (needsName בתשובה) הצעד השני שולח גם שם ליצירת כרטיס חדש. termsAccepted
+ * חובה רק כשגם name נשלח (שלב יצירת לקוח בפועל) - לא בבדיקת הטלפון הראשונית.
  */
-export const joinSchema = z.object({
-  name: z.string().trim().min(2, "השם קצר מדי").max(60, "השם ארוך מדי").optional(),
-  phone: z.string().trim().min(7, "מספר הטלפון לא תקין").max(20, "מספר הטלפון לא תקין"),
-});
+export const joinSchema = z
+  .object({
+    name: z.string().trim().min(2, "השם קצר מדי").max(60, "השם ארוך מדי").optional(),
+    phone: z.string().trim().min(7, "מספר הטלפון לא תקין").max(20, "מספר הטלפון לא תקין"),
+    termsAccepted: z.boolean().optional(),
+    marketingOptIn: z.boolean().optional(),
+  })
+  .refine((data) => !data.name || data.termsAccepted === true, {
+    message: "יש לאשר את תנאי השימוש ומדיניות הפרטיות",
+    path: ["termsAccepted"],
+  });
 
 /** התחברות צוות. */
 export const loginSchema = z.object({
@@ -30,6 +38,7 @@ export const stampActionSchema = z.object({
  */
 export const approvalRequestCreateSchema = z.object({
   customerId: z.string().trim().min(1, "חסר מזהה לקוח"),
+  kind: z.enum(["STAMP", "REDEEM"]).default("STAMP"),
   quantity: z.number().int().min(1, "כמות לא תקינה").max(STAMPS_REQUIRED, "כמות גבוהה מדי").default(1),
 });
 
@@ -55,7 +64,12 @@ export const broadcastSchema = z.object({
   body: z.string().trim().min(1, "תוכן חסר").max(200, "תוכן ארוך מדי"),
 });
 
-/** שמירת תאריך יום הולדת ("מתנת יום הולדת") - מגיע כ-YYYY-MM-DD מ-input type="date". */
+/**
+ * שמירת תאריך יום הולדת ("מתנת יום הולדת") - מגיע כ-YYYY-MM-DD מ-input
+ * type="date". marketingOptIn אופציונלי - נשלח רק כשהלקוח מסמן את תיבת
+ * ההסכמה הייעודית שמוצגת אם הוא עדיין לא הסכים לדיוור בהצטרפות.
+ */
 export const birthdaySchema = z.object({
   birthday: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "תאריך לא תקין"),
+  marketingOptIn: z.boolean().optional(),
 });
