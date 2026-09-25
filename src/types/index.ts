@@ -45,6 +45,7 @@ export interface StaffInfo {
 export interface StampActivityEvent {
   id: string;
   type: "STAMP" | "REDEEM";
+  quantity: number;
   createdAt: string;
   customer: { id: string; name: string };
   staff: { id: string; name: string };

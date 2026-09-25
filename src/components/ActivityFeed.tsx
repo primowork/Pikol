@@ -39,7 +39,12 @@ export default function ActivityFeed({ refreshKey }: ActivityFeedProps) {
           className="flex items-center justify-between rounded-xl bg-white/50 px-3 py-2 text-sm text-pikol-brown"
         >
           <span>
-            {event.type === "STAMP" ? "ניקוב" : "מימוש פרס"} · {event.customer.name}
+            {event.type === "STAMP"
+              ? event.quantity > 1
+                ? `ניקוב (${event.quantity})`
+                : "ניקוב"
+              : "מימוש פרס"}{" "}
+            · {event.customer.name}
           </span>
           <span className="text-xs text-pikol-brown/50">
             {new Date(event.createdAt).toLocaleTimeString("he-IL", {

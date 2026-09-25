@@ -9,6 +9,7 @@ import QrScanner from "./QrScanner";
 import Confetti from "./Confetti";
 import NotificationSubscribe from "./NotificationSubscribe";
 import InstallPrompt from "./InstallPrompt";
+import BirthdayGift from "./BirthdayGift";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import { getTimeBasedGreeting } from "@/lib/greeting";
 import type { CustomerCardState } from "@/types";
@@ -20,6 +21,7 @@ interface StampCardProps {
   stampsRequired: number;
   initialRewardsEarned: number;
   vapidPublicKey: string;
+  initialBirthday: string | null;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -31,6 +33,7 @@ export default function StampCard({
   stampsRequired,
   initialRewardsEarned,
   vapidPublicKey,
+  initialBirthday,
 }: StampCardProps) {
   const router = useRouter();
   const [stamps, setStamps] = useState(initialStamps);
@@ -139,6 +142,7 @@ export default function StampCard({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 px-4 py-8 text-center">
+      <BirthdayGift customerId={customerId} initialBirthday={initialBirthday} />
       <Confetti active={justCompletedAt !== null} />
       <Logo size={96} priority />
 
@@ -164,6 +168,7 @@ export default function StampCard({
               <CupIcon
                 status={index < filledInRound ? "filled" : "empty"}
                 justStamped={index === justStampedIndex}
+                isReward={index === stampsRequired - 1}
               />
             </div>
           ))}
