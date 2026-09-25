@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Logo from "./Logo";
 import CupIcon from "./CupIcon";
+import QrScanner from "./QrScanner";
 import InstallPrompt from "./InstallPrompt";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import type { CustomerCardState } from "@/types";
@@ -14,7 +16,6 @@ interface StampCardProps {
   initialStamps: number;
   stampsRequired: number;
   initialRewardsEarned: number;
-  qrDataUrl: string;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -25,11 +26,13 @@ export default function StampCard({
   initialStamps,
   stampsRequired,
   initialRewardsEarned,
-  qrDataUrl,
 }: StampCardProps) {
+  const router = useRouter();
   const [stamps, setStamps] = useState(initialStamps);
   const [rewardsEarned, setRewardsEarned] = useState(initialRewardsEarned);
   const [justStampedAt, setJustStampedAt] = useState<number | null>(null);
+  const [scannerActive, setScannerActive] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
   // שומר את מזהה הלקוח כדי שהאייקון במסך הבית ("/card" הכללי, ה-start_url
@@ -91,6 +94,24 @@ export default function StampCard({
   const filledInRound = stamps === 0 ? 0 : ((stamps - 1) % stampsRequired) + 1;
   const justStampedIndex = justStampedAt !== null ? filledInRound - 1 : null;
 
+  function handleScan(decodedText: string) {
+    setScannerActive(false);
+
+    let pathname = decodedText.trim();
+    try {
+      pathname = new URL(decodedText).pathname;
+    } catch {
+      // לא URL מלא - ממשיכים עם הטקסט הגולמי כמו שהוא
+    }
+
+    if (pathname === "/scan" || pathname.endsWith("/scan")) {
+      router.push("/scan");
+      return;
+    }
+
+    setScanError("זה לא נראה כמו קוד הדוכן של קפה פיקולו. אפשר לנסות שוב.");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 px-4 py-8 text-center">
       <Logo size={96} priority />
@@ -133,26 +154,49 @@ export default function StampCard({
         )}
       </div>
 
-      <div className="flex flex-col items-center gap-2 rounded-2xl border border-pikol-tan/40 bg-white/60 p-4">
-        {/* data URL שנוצר בשרת - לא רלוונטי ל-next/image optimization */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrDataUrl} alt="קוד QR אישי לזיהוי בקופה" width={200} height={200} />
-        <p className="text-xs text-pikol-brown/60">
-          הראו את הקוד הזה לבעל הקפה בכל קנייה כדי לקבל ניקוב
-        </p>
-        <p className="text-xs text-pikol-brown/40">
-          הקוד הזה מיועד לצוות לסרוק בקופה. לבקש ניקוב בעצמכם בלי מצלמה -
-          אתם כבר מזוהים, פשוט לחצו למטה.
-        </p>
-        {!rewardsAvailable && (
-          <Link
-            href="/scan"
-            className="mt-1 w-full rounded-full border-2 border-pikol-teal px-4 py-2 text-sm font-semibold text-pikol-teal"
-          >
-            בקשת ניקוב לקנייה נוספת
+      {!rewardsAvailable && (
+        <div className="flex w-full flex-col items-center gap-3 rounded-2xl border border-pikol-tan/40 bg-white/60 p-4">
+          <p className="text-sm font-medium text-pikol-brown">בקשת ניקוב לקנייה נוספת</p>
+          <p className="text-xs text-pikol-brown/60">
+            סרקו את הקוד המוצג בדוכן - הצוות יאשר את הבקשה מהטלפון שלו
+          </p>
+
+          {!scannerActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setScanError(null);
+                setScannerActive(true);
+              }}
+              className="w-full rounded-full bg-pikol-brown px-6 py-4 text-lg font-semibold text-pikol-cream"
+            >
+              פתיחת מצלמה לסריקה
+            </button>
+          )}
+
+          <QrScanner
+            active={scannerActive}
+            onScan={handleScan}
+            unavailableMessage="לא הצלחנו לגשת למצלמה. אפשר ללחוץ למטה במקום."
+          />
+
+          {scannerActive && (
+            <button
+              type="button"
+              onClick={() => setScannerActive(false)}
+              className="w-full rounded-full border border-pikol-tan/50 px-6 py-2 text-sm text-pikol-brown"
+            >
+              ביטול סריקה
+            </button>
+          )}
+
+          {scanError && <p className="text-sm text-red-700">{scanError}</p>}
+
+          <Link href="/scan" className="text-xs text-pikol-teal underline">
+            או לבקשת ניקוב בלי מצלמה
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       {rewardsEarned > 0 && (
         <p className="text-xs text-pikol-brown/50">

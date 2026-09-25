@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 interface QrScannerProps {
   onScan: (decodedText: string) => void;
   active: boolean;
+  unavailableMessage?: string;
 }
 
 const ELEMENT_ID = "pikol-qr-reader";
@@ -16,7 +17,7 @@ const ELEMENT_ID = "pikol-qr-reader";
  * הערה: הסריקה דורשת הקשר מאובטח (HTTPS או localhost) - זו מגבלת
  * הדפדפן, לא באג כאן.
  */
-export default function QrScanner({ onScan, active }: QrScannerProps) {
+export default function QrScanner({ onScan, active, unavailableMessage }: QrScannerProps) {
   const scannerRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +47,7 @@ export default function QrScanner({ onScan, active }: QrScannerProps) {
         );
       } catch {
         if (!cancelled) {
-          setError("לא הצלחנו לגשת למצלמה. אפשר לחפש לפי מספר טלפון במקום.");
+          setError(unavailableMessage ?? "לא הצלחנו לגשת למצלמה. אפשר לחפש לפי מספר טלפון במקום.");
         }
       }
     }
@@ -66,7 +67,7 @@ export default function QrScanner({ onScan, active }: QrScannerProps) {
           });
       }
     };
-  }, [active, onScan]);
+  }, [active, onScan, unavailableMessage]);
 
   if (!active) return null;
 
