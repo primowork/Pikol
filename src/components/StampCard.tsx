@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "./Logo";
 import CupIcon from "./CupIcon";
 import QrScanner from "./QrScanner";
+import Confetti from "./Confetti";
 import InstallPrompt from "./InstallPrompt";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import type { CustomerCardState } from "@/types";
@@ -31,6 +32,7 @@ export default function StampCard({
   const [stamps, setStamps] = useState(initialStamps);
   const [rewardsEarned, setRewardsEarned] = useState(initialRewardsEarned);
   const [justStampedAt, setJustStampedAt] = useState<number | null>(null);
+  const [justCompletedAt, setJustCompletedAt] = useState<number | null>(null);
   const [scannerActive, setScannerActive] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
@@ -62,9 +64,11 @@ export default function StampCard({
         setStamps((prev) => {
           if (data.currentStamps > prev) {
             setJustStampedAt(Date.now());
+            const justCompleted = prev < stampsRequired && data.currentStamps >= stampsRequired;
+            if (justCompleted) setJustCompletedAt(Date.now());
             if (typeof navigator !== "undefined" && "vibrate" in navigator) {
               try {
-                navigator.vibrate(200);
+                navigator.vibrate(justCompleted ? [100, 50, 100, 50, 200] : 200);
               } catch {
                 // best effort - לא כל דפדפן/מכשיר תומך
               }
@@ -80,7 +84,7 @@ export default function StampCard({
 
     const interval = window.setInterval(poll, POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [customerId]);
+  }, [customerId, stampsRequired]);
 
   useEffect(() => {
     if (justStampedAt === null) return;
@@ -88,11 +92,20 @@ export default function StampCard({
     return () => window.clearTimeout(timeout);
   }, [justStampedAt]);
 
+  useEffect(() => {
+    if (justCompletedAt === null) return;
+    const timeout = window.setTimeout(() => setJustCompletedAt(null), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [justCompletedAt]);
+
   const rewardsAvailable = stamps >= stampsRequired;
   // מספר הכוסות המלאות בסבב הנוכחי: תומך בעודף (stamps>stampsRequired אם
   // לא מימשו עדיין), ומציג כרטיס מלא (לא ריק) כשה-stamps הוא כפולה מדויקת.
   const filledInRound = stamps === 0 ? 0 : ((stamps - 1) % stampsRequired) + 1;
   const justStampedIndex = justStampedAt !== null ? filledInRound - 1 : null;
+  // סכום כל הניקובים אי-פעם: הניקובים בסבב הנוכחי, ועוד כל סבב שכבר מומש
+  // (currentStamps מופחת ב-stampsRequired בכל מימוש, לא מתאפס ל-0).
+  const totalCoffeesEver = stamps + rewardsEarned * stampsRequired;
 
   function handleScan(decodedText: string) {
     setScannerActive(false);
@@ -114,6 +127,7 @@ export default function StampCard({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 px-4 py-8 text-center">
+      <Confetti active={justCompletedAt !== null} />
       <Logo size={96} priority />
 
       <div>
@@ -196,6 +210,10 @@ export default function StampCard({
             או לבקשת ניקוב בלי מצלמה
           </Link>
         </div>
+      )}
+
+      {totalCoffeesEver > 0 && (
+        <p className="text-sm text-pikol-brown/60">שתיתם כבר {totalCoffeesEver} כוסות קפה בפיקולו! ☕</p>
       )}
 
       {rewardsEarned > 0 && (

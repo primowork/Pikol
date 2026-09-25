@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import CupIcon, { type CupStatus } from "@/components/CupIcon";
+import Confetti from "@/components/Confetti";
 import { BUSINESS_NAME } from "@/lib/config";
 import type { ApprovalRequestState, CustomerCardState } from "@/types";
 
@@ -39,7 +40,10 @@ export default function ScanPage() {
   const [screen, setScreen] = useState<ScreenState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [justApprovedAt, setJustApprovedAt] = useState<number | null>(null);
+  const [justCompletedAt, setJustCompletedAt] = useState<number | null>(null);
   const requestIdRef = useRef<string | null>(null);
+  const stampsRequired = customerState?.stampsRequired ?? 10;
+  const currentStamps = customerState?.currentStamps ?? 0;
 
   useEffect(() => {
     let storedId: string | null = null;
@@ -102,9 +106,11 @@ export default function ScanPage() {
 
         if (data.status === "APPROVED") {
           setJustApprovedAt(Date.now());
+          const willComplete = currentStamps + selectedQuantity >= stampsRequired;
+          if (willComplete) setJustCompletedAt(Date.now());
           if (typeof navigator !== "undefined" && "vibrate" in navigator) {
             try {
-              navigator.vibrate(200);
+              navigator.vibrate(willComplete ? [100, 50, 100, 50, 200] : 200);
             } catch {
               // best effort
             }
@@ -122,7 +128,13 @@ export default function ScanPage() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [screen]);
+  }, [screen, currentStamps, selectedQuantity, stampsRequired]);
+
+  useEffect(() => {
+    if (justCompletedAt === null) return;
+    const timeout = window.setTimeout(() => setJustCompletedAt(null), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [justCompletedAt]);
 
   async function handleConfirm() {
     if (!customerId || selectedQuantity < 1) return;
@@ -144,6 +156,13 @@ export default function ScanPage() {
 
       requestIdRef.current = data.approvalRequestId;
       setScreen("waiting");
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try {
+          navigator.vibrate([80, 60, 80]);
+        } catch {
+          // best effort
+        }
+      }
     } catch {
       setErrorMessage("בעיית תקשורת - נסו שוב");
       setScreen("error");
@@ -155,8 +174,6 @@ export default function ScanPage() {
     setScreen("selecting");
   }
 
-  const stampsRequired = customerState?.stampsRequired ?? 10;
-  const currentStamps = customerState?.currentStamps ?? 0;
   const filledInRound = currentStamps === 0 ? 0 : ((currentStamps - 1) % stampsRequired) + 1;
   const canSelect = screen === "selecting" && !customerState?.rewardsAvailable;
 
@@ -172,6 +189,7 @@ export default function ScanPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-4 py-8 text-center">
+      <Confetti active={justCompletedAt !== null} />
       <Logo size={96} priority />
       <div>
         <h1 className="text-xl font-bold text-pikol-brown">{BUSINESS_NAME}</h1>
