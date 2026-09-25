@@ -83,6 +83,13 @@ export default function CustomersDashboardClient({
         </Link>
       </div>
 
+      <Link
+        href="/api/customers/export"
+        className="w-full rounded-full border border-pikol-teal px-4 py-2 text-center text-sm font-semibold text-pikol-teal"
+      >
+        ייצוא לאקסל (CSV)
+      </Link>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-pikol-tan/40 bg-white/60 p-4 text-center">
           <p className="text-2xl font-semibold text-pikol-brown">{totalCustomers}</p>
