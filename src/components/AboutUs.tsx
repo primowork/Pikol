@@ -16,9 +16,9 @@ export default function AboutUs() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="קצת עלינו"
-        className="fixed left-4 top-4 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-pikol-teal text-xl text-pikol-cream shadow-md"
+        className="fixed left-4 top-4 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-pikol-teal text-xl shadow-md"
       >
-        ℹ️
+        📖
       </button>
 
       {open && (
