@@ -3,9 +3,11 @@
 import { useState } from "react";
 
 /**
- * איקון "קצת עלינו" בפינה השמאלית העליונה של הכרטיס - מראה לאיקון מתנת
- * יום ההולדת שיושב בפינה הימנית. פותח פופ-אפ עם סיפור בית הקפה, באותה
- * תבנית ויזואלית בדיוק כמו BirthdayGift.
+ * כפתור "עלינו" בפינה השמאלית העליונה של הכרטיס - מראה לאיקון מתנת יום
+ * ההולדת שיושב בפינה הימנית. טקסט ולא סמל בכוונה: אין סמל מוסכם ל"עלינו"
+ * (בניגוד לחיפוש/הגדרות וכו'), ובאותו עיקרון כבר משתמש "כניסת צוות" למטה
+ * בכרטיס הזה. פותח פופ-אפ עם סיפור בית הקפה, באותה תבנית ויזואלית בדיוק
+ * כמו BirthdayGift.
  */
 export default function AboutUs() {
   const [open, setOpen] = useState(false);
@@ -15,10 +17,9 @@ export default function AboutUs() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="קצת עלינו"
-        className="fixed left-4 top-4 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-pikol-teal text-xl shadow-md"
+        className="fixed left-4 top-4 z-40 rounded-full bg-pikol-teal px-4 py-2.5 text-sm font-semibold text-pikol-cream shadow-md"
       >
-        📖
+        עלינו
       </button>
 
       {open && (
