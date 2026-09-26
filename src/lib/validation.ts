@@ -78,3 +78,22 @@ export const birthdaySchema = z.object({
 export const aboutUsSettingsSchema = z.object({
   aboutUsText: z.string().trim().min(1, "הטקסט לא יכול להיות ריק").max(4000, "הטקסט ארוך מדי"),
 });
+
+/**
+ * עדכון VAPID subject - staff בלבד, מ-/staff/settings. אותה בדיקת פורמט
+ * בדיוק כמו web-push עצמו (validateSubject ב-src/lib/push.ts) - עדיף
+ * לתפוס פורמט שגוי כאן, בטופס, מאשר רק כשמנסים לשלוח push בפועל.
+ */
+export const vapidSubjectSettingsSchema = z.object({
+  vapidSubject: z
+    .string()
+    .trim()
+    .min(1, "יש להזין כתובת")
+    .refine((value) => {
+      try {
+        return ["https:", "mailto:"].includes(new URL(value).protocol);
+      } catch {
+        return false;
+      }
+    }, "הכתובת חייבת להתחיל ב-mailto: או https://"),
+});

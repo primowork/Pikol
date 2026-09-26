@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentStaff } from "@/lib/auth";
-import { getAboutUsText } from "@/lib/business-settings";
+import { getAboutUsText, getVapidSubject } from "@/lib/business-settings";
 import AboutUsSettingsForm from "@/components/AboutUsSettingsForm";
+import VapidSubjectSettingsForm from "@/components/VapidSubjectSettingsForm";
 import { BUSINESS_NAME } from "@/lib/config";
 
 /**
- * הגדרות עסק - כרגע רק טקסט "קצת עלינו" (יתרחב בעתיד לפי הצורך). עמוד
- * נפרד מהדשבורד, כמו stand-qr/customers - proxy.ts כבר חוסם ברמת UX,
- * ומאמתים שוב כאן במפורש.
+ * הגדרות עסק - טקסט "קצת עלינו" וכתובת קשר ל-VAPID subject (יתרחב
+ * בעתיד לפי הצורך). עמוד נפרד מהדשבורד, כמו stand-qr/customers -
+ * proxy.ts כבר חוסם ברמת UX, ומאמתים שוב כאן במפורש.
  */
 export default async function SettingsPage() {
   const staff = await getCurrentStaff();
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
     redirect("/staff/login");
   }
 
-  const aboutUsText = await getAboutUsText();
+  const [aboutUsText, vapidSubject] = await Promise.all([getAboutUsText(), getVapidSubject()]);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 px-4 py-8">
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
       </div>
 
       <AboutUsSettingsForm initialText={aboutUsText} />
+      <VapidSubjectSettingsForm initialValue={vapidSubject ?? ""} />
     </main>
   );
 }
