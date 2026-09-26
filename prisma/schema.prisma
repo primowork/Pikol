@@ -146,11 +146,13 @@ model CustomerPushSubscription {
 
 // טבלת הגדרות יחידה (singleton, id קבוע "singleton" בקוד - לא @default כאן
 // כדי לא לסמוך על התנהגות schema-level למשהו שהוא ממילא מוסכמה
-// אפליקטיבית). כרגע רק טקסט "קצת עלינו" - נערך ע"י staff ב-/staff/settings,
-// מוצג ללקוח בפופ-אפ AboutUs. אם אין שורה עדיין, הקוד נופל לברירת מחדל
-// קבועה (src/lib/business-settings.ts) - אין צורך במיגרציית seed.
+// אפליקטיבית). נערכת ע"י staff ב-/staff/settings. כל שדה אופציונלי -
+// אם אין שורה, או שדה ספציפי ריק, הקוד נופל לברירת מחדל (טקסט קבוע ל-
+// aboutUsText, משתנה הסביבה VAPID_SUBJECT ל-vapidSubject) - אין צורך
+// במיגרציית seed. ראו src/lib/business-settings.ts.
 model BusinessSettings {
-  id          String   @id
-  aboutUsText String
-  updatedAt   DateTime @updatedAt
+  id           String   @id
+  aboutUsText  String?
+  vapidSubject String?
+  updatedAt    DateTime @updatedAt
 }
