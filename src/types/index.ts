@@ -77,6 +77,23 @@ export interface PendingApprovalRequest {
   customer: { id: string; name: string };
 }
 
+/** GET /api/broadcast - כמה לקוחות יקבלו שידור אם יישלח עכשיו (לתצוגה המקדימה). */
+export interface BroadcastAudience {
+  customerCount: number;
+}
+
+/** POST /api/broadcast - פירוט מה קרה בשליחה, כדי ש"0" לא יישאר בלי הסבר. */
+export interface CustomerBroadcastResult {
+  /** לקוחות ייחודיים (לא מכשירים) שלפחות מכשיר אחד שלהם קיבל את ההודעה. */
+  sentCount: number;
+  /** מכשירים ששירות ה-push דחה (לא 404/410) - נשארים ברשימה. */
+  failedCount: number;
+  /** מכשירים שביטלו את ההרשמה (404/410) ונמחקו עכשיו מהרשימה. */
+  removedCount: number;
+  /** תשובת שירות ה-push לכישלון הראשון, בקיצור - לאבחון בלי גישה ללוגים. */
+  failureReason: string | null;
+}
+
 /**
  * תואם את מה שהדפדפן מחזיר מ-PushSubscription.toJSON(). שם שונה בכוונה
  * מה-interface הגלובלי PushSubscriptionJSON (מ-lib.dom) כדי שלא יהיה
