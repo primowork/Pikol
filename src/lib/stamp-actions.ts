@@ -48,7 +48,9 @@ export async function addStampForCustomer(
  * הלוגיקה הביטחונית המשותפת למימוש פרס - קרואה גם מ-POST /api/stamps
  * (מימוש ידני דרך CustomerActionPanel) וגם מ-POST /api/approval-requests/[id]/approve
  * (אישור בקשת מימוש מהלקוח). staffId חייב תמיד להגיע מ-requireStaff() אצל
- * הקורא. סמנטיקה זהה לחלוטין למה שהיה קיים inline קודם: מפחית בדיוק
+ * הקורא. מעדיף לצרוך בונוס יום הולדת קודם (bonusRewardsAvailable) - זו
+ * מתנה בלי קשר למחזור הניקובים, ולא אמור "לעלות" ללקוח מהניקובים שכבר
+ * צבר; רק אם אין בונוס זמין חוזרים לסמנטיקה הרגילה: מפחית בדיוק
  * STAMPS_REQUIRED (לא מאפס ל-0 - תומך בעודף), לא מגביל למספר "סבבים".
  */
 export async function redeemForCustomer(
@@ -60,16 +62,17 @@ export async function redeemForCustomer(
   if (!customer) {
     throw new NotFoundError("לקוח לא נמצא");
   }
-  if (customer.currentStamps < STAMPS_REQUIRED) {
+
+  const hasBonusReward = customer.bonusRewardsAvailable > 0;
+  if (!hasBonusReward && customer.currentStamps < STAMPS_REQUIRED) {
     throw new ValidationError("אין מספיק ניקובים למימוש הפרס");
   }
 
   const updatedCustomer = await tx.customer.update({
     where: { id: customerId },
-    data: {
-      currentStamps: { decrement: STAMPS_REQUIRED },
-      rewardsEarned: { increment: 1 },
-    },
+    data: hasBonusReward
+      ? { bonusRewardsAvailable: { decrement: 1 }, rewardsEarned: { increment: 1 } }
+      : { currentStamps: { decrement: STAMPS_REQUIRED }, rewardsEarned: { increment: 1 } },
   });
   const event = await tx.stampEvent.create({
     data: { type: "REDEEM", customerId, staffId },

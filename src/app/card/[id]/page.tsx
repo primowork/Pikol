@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { STAMPS_REQUIRED } from "@/lib/config";
+import { grantBirthdayRewardIfDue } from "@/lib/birthday-reward";
 import StampCard from "@/components/StampCard";
 
 export default async function CardPage({
@@ -9,6 +10,8 @@ export default async function CardPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  await grantBirthdayRewardIfDue(id);
 
   const customer = await prisma.customer.findUnique({ where: { id } });
   if (!customer) {
@@ -25,6 +28,7 @@ export default async function CardPage({
       vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ""}
       initialBirthday={customer.birthday ? customer.birthday.toISOString().slice(0, 10) : null}
       marketingOptIn={customer.marketingOptIn}
+      hasBirthdayReward={customer.bonusRewardsAvailable > 0}
     />
   );
 }

@@ -46,6 +46,8 @@ model Customer {
   birthday                  DateTime?                  @db.Date
   currentStamps             Int                        @default(0)
   rewardsEarned             Int                        @default(0)
+  bonusRewardsAvailable     Int                        @default(0)
+  lastBirthdayRewardYear    Int?
   termsAccepted             Boolean                    @default(false)
   marketingOptIn            Boolean                    @default(false)
   consentedAt               DateTime?
