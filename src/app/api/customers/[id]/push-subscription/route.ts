@@ -4,6 +4,31 @@ import { pushSubscriptionSchema, pushUnsubscribeSchema } from "@/lib/validation"
 import { handleApiError, NotFoundError, ValidationError } from "@/lib/errors";
 
 /**
+ * האם המכשיר הזה (לפי endpoint) רשום לשידורים של הלקוח הזה. NotificationSubscribe
+ * שואל את זה בטעינה, כי לדפדפן יש מינוי push אחד לכל האתר (service worker
+ * יחיד) - מינוי שנוצר בדשבורד הצוות לא אומר שהמכשיר רשום גם כלקוח.
+ */
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+
+    const endpoint = request.nextUrl.searchParams.get("endpoint")?.trim();
+    if (!endpoint) {
+      throw new ValidationError("endpoint חסר");
+    }
+
+    const subscription = await prisma.customerPushSubscription.findFirst({
+      where: { endpoint, customerId: id },
+      select: { id: true },
+    });
+
+    return NextResponse.json({ subscribed: subscription !== null });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+/**
  * רישום מכשיר לקוח ל-Web Push (opt-in) - ציבורי, מזוהה ע"י ה-id
  * הבלתי-נחוש בנתיב (בדיוק כמו GET /api/customers/[id]), לא session.
  * upsert לפי endpoint - מטפל גם ברענון דף וגם במעבר בין לקוחות באותו

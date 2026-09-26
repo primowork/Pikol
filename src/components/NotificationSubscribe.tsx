@@ -38,9 +38,28 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
+ * האם המינוי שבדפדפן נוצר עם המפתח הציבורי הנוכחי. אם מפתחות VAPID הוחלפו
+ * בשרת, מינוי ישן לא יקבל יותר כלום (שירות ה-push דוחה חתימה במפתח אחר),
+ * וגם subscribe() חדש נכשל עליו ב-InvalidStateError עד שמבטלים אותו.
+ * דפדפן שלא חושף את options.applicationServerKey נחשב תואם.
+ */
+function hasCurrentServerKey(subscription: PushSubscription, vapidPublicKey: string): boolean {
+  const current = subscription.options?.applicationServerKey;
+  if (!current) return true;
+  const expected = urlBase64ToUint8Array(vapidPublicKey);
+  const actual = new Uint8Array(current);
+  return actual.length === expected.length && actual.every((byte, index) => byte === expected[index]);
+}
+
+/**
  * כפתור "הפעלת התראות" גנרי - נרשם ל-Web Push. משמש גם את הצוות (התראות
  * בקשת ניקוב מ-"/scan") וגם את הלקוח (עדכונים/מבצעים מבעל העסק), רק עם
  * subscribeUrl וטקסטים שונים - ה-URL הוא מה שקובע מי בפועל נרשם.
+ *
+ * "פעיל" מוצג רק אחרי שהשרת מאשר שהמכשיר רשום לתפקיד הזה (GET על אותו
+ * subscribeUrl עם ?endpoint=). לדפדפן יש מינוי push אחד לכל האתר, ובעבר
+ * מספיק היה שיהיה מינוי כלשהו: מכשיר שהופעלו בו התראות בדשבורד הצוות
+ * הציג "פעיל" גם בכרטיס הלקוח בלי שנרשם כלקוח, והשידור הגיע לאפס לקוחות.
  *
  * isSupported דרך useSyncExternalStore (לא useState+useEffect) - כי
  * serviceWorker/PushManager לא קיימים בזמן server render, וזה גם נמנע
@@ -61,17 +80,26 @@ export default function NotificationSubscribe({
   const [state, setState] = useState<SubscribeState>("idle");
 
   useEffect(() => {
-    if (!isSupported) return;
+    if (!isSupported || !vapidPublicKey) return;
 
+    let cancelled = false;
     navigator.serviceWorker.ready
       .then((registration) => registration.pushManager.getSubscription())
-      .then((subscription) => {
-        if (subscription) setState("subscribed");
+      .then(async (subscription) => {
+        if (!subscription || !hasCurrentServerKey(subscription, vapidPublicKey)) return;
+        const res = await fetch(`${subscribeUrl}?endpoint=${encodeURIComponent(subscription.endpoint)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.subscribed) setState("subscribed");
       })
       .catch(() => {
         // לא קריטי - הכפתור פשוט יישאר במצב "idle" והמשתמש יכול ללחוץ
       });
-  }, [isSupported]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSupported, subscribeUrl, vapidPublicKey]);
 
   async function handleSubscribe() {
     if (!vapidPublicKey) {
@@ -88,6 +116,13 @@ export default function NotificationSubscribe({
       }
 
       const registration = await navigator.serviceWorker.ready;
+      // מינוי עם המפתח הנוכחי פשוט מוחזר שוב מ-subscribe() ונרשם בשרת גם
+      // לתפקיד הזה (upsert לפי endpoint). מינוי עם מפתח קודם מבטלים קודם,
+      // אחרת subscribe() נכשל עליו בכל לחיצה.
+      const existing = await registration.pushManager.getSubscription();
+      if (existing && !hasCurrentServerKey(existing, vapidPublicKey)) {
+        await existing.unsubscribe();
+      }
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),

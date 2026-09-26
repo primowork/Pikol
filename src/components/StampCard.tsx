@@ -248,7 +248,7 @@ export default function StampCard({
         subscribeUrl={`/api/customers/${customerId}/push-subscription`}
         buttonLabel="הפעלת התראות על מבצעים ועדכונים"
         subscribedLabel="התראות פעילות במכשיר הזה"
-        unsupportedLabel="התראות לא נתמכות בדפדפן הזה."
+        unsupportedLabel="התראות לא נתמכות בדפדפן הזה. באייפון צריך קודם להוסיף את הכרטיס למסך הבית ולפתוח אותו משם."
       />
 
       <InstallPrompt />

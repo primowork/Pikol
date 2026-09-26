@@ -3,6 +3,7 @@ import { prisma } from "./db";
 import { APPROVAL_REQUEST_TIMEOUT_SECONDS } from "./config";
 import { PushNotConfiguredError } from "./errors";
 import { getVapidSubject } from "./business-settings";
+import type { BroadcastAudience, CustomerBroadcastResult } from "@/types";
 
 // חתימת VAPID מוגדרת מחדש רק כש-subject בפועל משתנה (לא flag בוליאני קבוע) -
 // כי subject יכול עכשיו להגיע מ-DB ולהשתנות בזמן ריצה דרך /staff/settings,
@@ -90,15 +91,50 @@ export async function sendApprovalPush(
 }
 
 /**
+ * כמה לקוחות (ייחודיים, לא מכשירים) יקבלו שידור אם יישלח עכשיו - לתצוגה
+ * המקדימה בדשבורד. ensureConfigured קודם, כדי ש-VAPID שבור יתגלה כבר
+ * בפתיחת חלון השידור ולא רק אחרי שבעל העסק ניסח ולחץ "שליחה".
+ */
+export async function getCustomerBroadcastAudience(): Promise<BroadcastAudience> {
+  await ensureConfigured();
+
+  const customers = await prisma.customerPushSubscription.findMany({
+    distinct: ["customerId"],
+    select: { customerId: true },
+  });
+  return { customerCount: customers.length };
+}
+
+/** תקציר קצר של כישלון שליחה - תשובת שירות ה-push (body) אומרת הכי הרבה. */
+function describePushFailure(reason: unknown): string {
+  const { statusCode, body, message } = (reason ?? {}) as {
+    statusCode?: number;
+    body?: unknown;
+    message?: string;
+  };
+  const detail = (typeof body === "string" && body.trim()) || message || "שגיאה לא ידועה";
+  const text = statusCode ? `${statusCode}: ${detail}` : detail;
+  return text.replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
+/**
  * שידור ידני מהצוות לכל הלקוחות שנרשמו ל-Web Push (opt-in). בלי כפתורי
  * פעולה - זו הודעה פשוטה, לא בקשה לאישור/דחייה (ראו kind:"broadcast"
  * ב-sw.js). אותו דפוס allSettled + ניקוי endpoint שפג תוקף כמו למעלה.
+ *
+ * מחזירה פירוט ולא רק מספר: "נשלח ל-0" יכול לנבוע מזה שאין מנויים בכלל,
+ * מדחייה של שירות ה-push (למשל 403 כשמפתחות VAPID הוחלפו אחרי שהלקוחות
+ * נרשמו), או ממנויים שפגו - ובלי הפירוט אי אפשר להבדיל ביניהם מהדשבורד.
+ * דחייה (לא 404/410) לא נמחקת בכוונה: מפתח פרטי שהוגדר לא נכון היה
+ * מוחק ככה את ההרשמות של כל הלקוחות בבת אחת.
  */
-export async function sendCustomerBroadcast(title: string, body: string): Promise<{ sentCount: number }> {
+export async function sendCustomerBroadcast(title: string, body: string): Promise<CustomerBroadcastResult> {
   await ensureConfigured();
 
   const subscriptions = await prisma.customerPushSubscription.findMany();
-  if (subscriptions.length === 0) return { sentCount: 0 };
+  if (subscriptions.length === 0) {
+    return { sentCount: 0, failedCount: 0, removedCount: 0, failureReason: null };
+  }
 
   const payload = JSON.stringify({ kind: "broadcast", title, body });
 
@@ -113,16 +149,20 @@ export async function sendCustomerBroadcast(title: string, body: string): Promis
   );
 
   const staleEndpoints: string[] = [];
-  let sentCount = 0;
+  const reachedCustomerIds = new Set<string>();
+  let failedCount = 0;
+  let failureReason: string | null = null;
   results.forEach((result, index) => {
     if (result.status === "fulfilled") {
-      sentCount += 1;
+      reachedCustomerIds.add(subscriptions[index].customerId);
       return;
     }
     const statusCode = (result.reason as { statusCode?: number })?.statusCode;
     if (statusCode === 404 || statusCode === 410) {
       staleEndpoints.push(subscriptions[index].endpoint);
     } else {
+      failedCount += 1;
+      failureReason ??= describePushFailure(result.reason);
       console.error("שליחת שידור ללקוחות נכשלה:", result.reason);
     }
   });
@@ -131,5 +171,10 @@ export async function sendCustomerBroadcast(title: string, body: string): Promis
     await prisma.customerPushSubscription.deleteMany({ where: { endpoint: { in: staleEndpoints } } });
   }
 
-  return { sentCount };
+  return {
+    sentCount: reachedCustomerIds.size,
+    failedCount,
+    removedCount: staleEndpoints.length,
+    failureReason,
+  };
 }
