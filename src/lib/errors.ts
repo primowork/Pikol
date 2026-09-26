@@ -66,6 +66,13 @@ export class ApprovalConflictError extends ApiError {
   }
 }
 
+/** משתני VAPID לא מוגדרים בשרת - אי אפשר לשלוח Web Push (שידור/בקשות אישור). */
+export class PushNotConfiguredError extends ApiError {
+  constructor() {
+    super(500, "התראות Push לא מוגדרות בשרת - יש להגדיר את מפתחות VAPID לפני שידור");
+  }
+}
+
 export function handleApiError(err: unknown): NextResponse {
   if (err instanceof ApiError) {
     return NextResponse.json({ error: err.message, ...err.extra }, { status: err.status });

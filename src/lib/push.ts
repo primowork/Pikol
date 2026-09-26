@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { prisma } from "./db";
 import { APPROVAL_REQUEST_TIMEOUT_SECONDS } from "./config";
+import { PushNotConfiguredError } from "./errors";
 
 // חתימת VAPID מוגדרת פעם אחת בלבד (lazy) - נטען רק כשבאמת שולחים push,
 // כדי שסביבת build/lint לא תדרוש את משתני הסביבה האלה. משתמשים רק כאן,
@@ -13,7 +14,7 @@ function ensureConfigured() {
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT;
   if (!publicKey || !privateKey || !subject) {
-    throw new Error("חסרים משתני הסביבה VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT");
+    throw new PushNotConfiguredError();
   }
   webpush.setVapidDetails(subject, publicKey, privateKey);
   configured = true;
