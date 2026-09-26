@@ -219,18 +219,9 @@ export default function StampCard({
           <QrScanner
             active={scannerActive}
             onScan={handleScan}
+            onClose={() => setScannerActive(false)}
             unavailableMessage="לא הצלחנו לגשת למצלמה. אפשר ללחוץ למטה במקום."
           />
-
-          {scannerActive && (
-            <button
-              type="button"
-              onClick={() => setScannerActive(false)}
-              className="w-full rounded-full border border-pikol-tan/50 px-6 py-2 text-sm text-pikol-brown"
-            >
-              ביטול סריקה
-            </button>
-          )}
 
           {scanError && <p className="text-sm text-red-700">{scanError}</p>}
 
