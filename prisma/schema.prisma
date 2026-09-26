@@ -143,3 +143,14 @@ model CustomerPushSubscription {
 
   @@index([customerId])
 }
+
+// טבלת הגדרות יחידה (singleton, id קבוע "singleton" בקוד - לא @default כאן
+// כדי לא לסמוך על התנהגות schema-level למשהו שהוא ממילא מוסכמה
+// אפליקטיבית). כרגע רק טקסט "קצת עלינו" - נערך ע"י staff ב-/staff/settings,
+// מוצג ללקוח בפופ-אפ AboutUs. אם אין שורה עדיין, הקוד נופל לברירת מחדל
+// קבועה (src/lib/business-settings.ts) - אין צורך במיגרציית seed.
+model BusinessSettings {
+  id          String   @id
+  aboutUsText String
+  updatedAt   DateTime @updatedAt
+}

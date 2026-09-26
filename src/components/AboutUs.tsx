@@ -2,15 +2,26 @@
 
 import { useState } from "react";
 
+interface AboutUsProps {
+  aboutUsText: string;
+}
+
 /**
  * כפתור "עלינו" בפינה השמאלית העליונה של הכרטיס - מראה לאיקון מתנת יום
  * ההולדת שיושב בפינה הימנית. טקסט ולא סמל בכוונה: אין סמל מוסכם ל"עלינו"
  * (בניגוד לחיפוש/הגדרות וכו'), ובאותו עיקרון כבר משתמש "כניסת צוות" למטה
  * בכרטיס הזה. פותח פופ-אפ עם סיפור בית הקפה, באותה תבנית ויזואלית בדיוק
  * כמו BirthdayGift.
+ *
+ * aboutUsText מגיע מ-src/lib/business-settings.ts (נערך ב-/staff/settings) -
+ * שורה ריקה מפרידה בין פסקאות, בדיוק כמו textarea רגיל.
  */
-export default function AboutUs() {
+export default function AboutUs({ aboutUsText }: AboutUsProps) {
   const [open, setOpen] = useState(false);
+  const paragraphs = aboutUsText
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
 
   return (
     <>
@@ -28,22 +39,9 @@ export default function AboutUs() {
             <h2 className="mb-3 text-lg font-semibold text-pikol-brown">קצת עלינו</h2>
 
             <div className="space-y-3 text-sm leading-relaxed text-pikol-brown/80">
-              <p>פיקולו — קטן באיטלקית — נולד מאהבה לקפה ומהרצון לפתוח מקום קטן, פשוט ושלי.</p>
-              <p>
-                אחרי עשור בתחום הקפה, בין עבודה כבריסטה, ניהול בר וקלייה, חזרתי משירות המילואים
-                בלי עבודה. במקום לחפש את הדבר הבא, החלטתי לפתוח את המקום שלי — קטן ולעניין, כמה
-                צעדים מכיכר דיזנגוף.
-              </p>
-              <p>
-                הקפה הוא הלב של המקום. אני קולה את הקפה בבית הקלייה רות, ועובד עם 100% ערביקה
-                בקלייה בינונית-פלוס, לצד קפה אתיופי וקולומביאני. אני שומר על מלאי קטן ומפוקח כדי
-                שהקפה יהיה תמיד טרי.
-              </p>
-              <p>לצד הקפה תמצאו מאפים וכריכים טריים ממייזון קייזר.</p>
-              <p>
-                בסוף, פיקולו הוא בדיוק מה שהשם שלו אומר: מקום קטן, עם הרבה תשומת לב למה שנכנס
-                לכוס.
-              </p>
+              {paragraphs.map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
             </div>
 
             <button

@@ -73,3 +73,8 @@ export const birthdaySchema = z.object({
   birthday: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "תאריך לא תקין"),
   marketingOptIn: z.boolean().optional(),
 });
+
+/** עדכון טקסט "קצת עלינו" שמוצג בכרטיס הלקוח - staff בלבד, מ-/staff/settings. */
+export const aboutUsSettingsSchema = z.object({
+  aboutUsText: z.string().trim().min(1, "הטקסט לא יכול להיות ריק").max(4000, "הטקסט ארוך מדי"),
+});
