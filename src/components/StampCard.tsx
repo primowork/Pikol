@@ -10,6 +10,7 @@ import Confetti from "./Confetti";
 import NotificationSubscribe from "./NotificationSubscribe";
 import InstallPrompt from "./InstallPrompt";
 import BirthdayGift from "./BirthdayGift";
+import AboutUs from "./AboutUs";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import { getTimeBasedGreeting } from "@/lib/greeting";
 import type { CustomerCardState } from "@/types";
@@ -152,6 +153,7 @@ export default function StampCard({
         marketingOptIn={marketingOptIn}
         hasBirthdayReward={hasBirthdayReward}
       />
+      <AboutUs />
       <Confetti active={justCompletedAt !== null} />
       <Logo size={96} priority />
 
