@@ -2,30 +2,35 @@ import webpush from "web-push";
 import { prisma } from "./db";
 import { APPROVAL_REQUEST_TIMEOUT_SECONDS } from "./config";
 import { PushNotConfiguredError } from "./errors";
+import { getVapidSubject } from "./business-settings";
 
-// חתימת VAPID מוגדרת פעם אחת בלבד (lazy) - נטען רק כשבאמת שולחים push,
-// כדי שסביבת build/lint לא תדרוש את משתני הסביבה האלה. משתמשים רק כאן,
-// לעולם לא ב-src/proxy.ts - זה רץ ב-Edge runtime (לכן jose נבחר שם),
-// ו-web-push תלוי ב-Node crypto. route handlers רצים על Node כרגיל.
-let configured = false;
-function ensureConfigured() {
-  if (configured) return;
+// חתימת VAPID מוגדרת מחדש רק כש-subject בפועל משתנה (לא flag בוליאני קבוע) -
+// כי subject יכול עכשיו להגיע מ-DB ולהשתנות בזמן ריצה דרך /staff/settings,
+// בלי restart לשרת. המפתחות עצמם (public/private) נשארים אך ורק משתני
+// סביבה בכוונה: אלה זהות קריפטוגרפית שכל ה-subscriptions הקיימים תלויים
+// בה - שינוי שלהם דרך UI היה שובר בשקט את כל ההרשמות הקיימות. לא ב-
+// src/proxy.ts - זה רץ ב-Edge runtime (לכן jose נבחר שם), ו-web-push
+// תלוי ב-Node crypto. route handlers רצים על Node כרגיל.
+let configuredSubject: string | null = null;
+async function ensureConfigured() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
+  const subject = await getVapidSubject();
   if (!publicKey || !privateKey || !subject) {
     throw new PushNotConfiguredError();
   }
-  // setVapidDetails מוודא גם פורמט (אורך המפתח אחרי פענוח base64url וכו'),
-  // לא רק שהמשתנים קיימים - מפתח נוכח אבל פגום זורק כאן כל קריאה, לנצח,
-  // כי configured אף פעם לא הופך ל-true. לוכדים כדי שההודעה הספציפית
-  // (למשל "אורך מפתח שגוי") תגיע ל-staff במקום "משהו השתבש" גנרי.
+  if (configuredSubject === subject) return;
+  // setVapidDetails מוודא גם פורמט (אורך המפתח אחרי פענוח base64url,
+  // subject שהוא URL תקין וכו'), לא רק שהערכים קיימים - ערך נוכח אבל
+  // פגום זורק כאן כל קריאה, לנצח, כי configuredSubject אף פעם לא מתעדכן.
+  // לוכדים כדי שההודעה הספציפית (למשל "אורך מפתח שגוי") תגיע ל-staff
+  // במקום "משהו השתבש" גנרי.
   try {
     webpush.setVapidDetails(subject, publicKey, privateKey);
   } catch (err) {
     throw new PushNotConfiguredError(err instanceof Error ? err.message : undefined);
   }
-  configured = true;
+  configuredSubject = subject;
 }
 
 /**
@@ -38,7 +43,7 @@ export async function sendApprovalPush(
   kind: "STAMP" | "REDEEM",
   quantity: number
 ) {
-  ensureConfigured();
+  await ensureConfigured();
 
   const subscriptions = await prisma.pushSubscription.findMany();
   if (subscriptions.length === 0) return;
@@ -90,7 +95,7 @@ export async function sendApprovalPush(
  * ב-sw.js). אותו דפוס allSettled + ניקוי endpoint שפג תוקף כמו למעלה.
  */
 export async function sendCustomerBroadcast(title: string, body: string): Promise<{ sentCount: number }> {
-  ensureConfigured();
+  await ensureConfigured();
 
   const subscriptions = await prisma.customerPushSubscription.findMany();
   if (subscriptions.length === 0) return { sentCount: 0 };

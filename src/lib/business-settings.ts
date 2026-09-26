@@ -28,3 +28,22 @@ export async function setAboutUsText(aboutUsText: string): Promise<void> {
     update: { aboutUsText },
   });
 }
+
+/**
+ * כתובת ה-subject של VAPID (דרישת תקן Web Push - ראו src/lib/push.ts) -
+ * "כתובת קשר" טכנית לשירותי ה-push, לא מוצגת ללקוחות. ברירת המחדל היא
+ * משתנה הסביבה VAPID_SUBJECT (כפי שהיה לפני שהתווסף כאן) - עדיפות לערך
+ * מה-DB אם staff שמר אחד דרך /staff/settings.
+ */
+export async function getVapidSubject(): Promise<string | null> {
+  const settings = await prisma.businessSettings.findUnique({ where: { id: SETTINGS_ID } });
+  return settings?.vapidSubject || process.env.VAPID_SUBJECT || null;
+}
+
+export async function setVapidSubject(vapidSubject: string): Promise<void> {
+  await prisma.businessSettings.upsert({
+    where: { id: SETTINGS_ID },
+    create: { id: SETTINGS_ID, vapidSubject },
+    update: { vapidSubject },
+  });
+}
