@@ -16,6 +16,9 @@
 body {
   background-color: var(--color-pikol-cream);
   color: var(--color-pikol-brown);
+  /* רווח עליון רק כשכרום באייפון תוקע את ראש הדף מתחת לשורת הכתובת
+     (ראו ChromeIosTopFix.tsx). בכל מצב אחר המשתנה לא מוגדר או 0. */
+  padding-top: var(--ios-top-fix, 0px);
 }
 
 /* אנימציית ה"הטבעה" של כוס שזה עתה נוקבה - סקייל קטן שנרגע לגודל רגיל. */

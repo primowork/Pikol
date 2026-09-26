@@ -3,6 +3,7 @@ import { Heebo } from "next/font/google";
 import "./globals.css";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import ChromeIosTopFix from "@/components/ChromeIosTopFix";
 
 const heebo = Heebo({
   subsets: ["hebrew", "latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen font-sans antialiased">
         {children}
         <ServiceWorkerRegister />
+        <ChromeIosTopFix />
       </body>
     </html>
   );
