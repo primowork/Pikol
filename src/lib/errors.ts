@@ -66,10 +66,19 @@ export class ApprovalConflictError extends ApiError {
   }
 }
 
-/** משתני VAPID לא מוגדרים בשרת - אי אפשר לשלוח Web Push (שידור/בקשות אישור). */
+/**
+ * משתני VAPID חסרים או לא תקינים בשרת - אי אפשר לשלוח Web Push (שידור/
+ * בקשות אישור). detail מגיע משגיאת הוולידציה הפנימית של web-push עצמה
+ * (למשל אורך מפתח שגוי) - טכני בכוונה, זו הודעה ל-staff שצריך לתקן env var.
+ */
 export class PushNotConfiguredError extends ApiError {
-  constructor() {
-    super(500, "התראות Push לא מוגדרות בשרת - יש להגדיר את מפתחות VAPID לפני שידור");
+  constructor(detail?: string) {
+    super(
+      500,
+      detail
+        ? `התראות Push לא מוגדרות נכון בשרת: ${detail}`
+        : "התראות Push לא מוגדרות בשרת - יש להגדיר את מפתחות VAPID לפני שידור"
+    );
   }
 }
 

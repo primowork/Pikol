@@ -16,7 +16,15 @@ function ensureConfigured() {
   if (!publicKey || !privateKey || !subject) {
     throw new PushNotConfiguredError();
   }
-  webpush.setVapidDetails(subject, publicKey, privateKey);
+  // setVapidDetails מוודא גם פורמט (אורך המפתח אחרי פענוח base64url וכו'),
+  // לא רק שהמשתנים קיימים - מפתח נוכח אבל פגום זורק כאן כל קריאה, לנצח,
+  // כי configured אף פעם לא הופך ל-true. לוכדים כדי שההודעה הספציפית
+  // (למשל "אורך מפתח שגוי") תגיע ל-staff במקום "משהו השתבש" גנרי.
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+  } catch (err) {
+    throw new PushNotConfiguredError(err instanceof Error ? err.message : undefined);
+  }
   configured = true;
 }
 

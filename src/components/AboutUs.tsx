@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { INSTAGRAM_URL } from "@/lib/config";
 
 interface AboutUsProps {
   aboutUsText: string;
@@ -44,13 +45,38 @@ export default function AboutUs({ aboutUsText }: AboutUsProps) {
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="mt-4 text-xs text-pikol-brown/50 underline"
-            >
-              סגירה
-            </button>
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-xs text-pikol-brown/50 underline"
+              >
+                סגירה
+              </button>
+
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="עקבו אחרינו באינסטגרם"
+                className="text-pikol-brown/50"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                </svg>
+              </a>
+            </div>
           </div>
         </div>
       )}
