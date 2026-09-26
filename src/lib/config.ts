@@ -3,6 +3,7 @@
 
 export const BUSINESS_NAME = "קפה פיקולו";
 export const BUSINESS_TAGLINE = "בית קפה קטן ולעניין";
+export const INSTAGRAM_URL = "https://www.instagram.com/cafe.piccolo.il/";
 
 /** כמה ניקובים נדרשים כדי לזכות במשקה חינם. */
 export const STAMPS_REQUIRED = 10;
