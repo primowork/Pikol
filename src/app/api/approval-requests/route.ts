@@ -26,13 +26,13 @@ export async function POST(request: NextRequest) {
 
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
-      select: { id: true, name: true, currentStamps: true },
+      select: { id: true, name: true, currentStamps: true, bonusRewardsAvailable: true },
     });
     if (!customer) {
       throw new NotFoundError("לקוח לא נמצא");
     }
 
-    if (kind === "REDEEM" && customer.currentStamps < STAMPS_REQUIRED) {
+    if (kind === "REDEEM" && customer.currentStamps < STAMPS_REQUIRED && customer.bonusRewardsAvailable === 0) {
       throw new ValidationError("אין מספיק ניקובים למימוש הפרס");
     }
 
