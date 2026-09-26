@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 interface QrScannerProps {
   onScan: (decodedText: string) => void;
   active: boolean;
+  onClose?: () => void;
   unavailableMessage?: string;
 }
 
@@ -13,11 +14,13 @@ const ELEMENT_ID = "pikol-qr-reader";
 /**
  * עוטף את html5-qrcode לסריקת מצלמה. נטען דינמית (רק כש-active) כי
  * הספרייה משתמשת ב-navigator.mediaDevices ולא רלוונטית בצד שרת.
+ * מוצג כפופ-אפ ממורכז מעל שאר הדף (לא inline בזרימת הדף) - אותה תבנית
+ * ויזואלית כמו שאר הפופ-אפים באפליקציה (BirthdayGift, AboutUs).
  *
  * הערה: הסריקה דורשת הקשר מאובטח (HTTPS או localhost) - זו מגבלת
  * הדפדפן, לא באג כאן.
  */
-export default function QrScanner({ onScan, active, unavailableMessage }: QrScannerProps) {
+export default function QrScanner({ onScan, active, onClose, unavailableMessage }: QrScannerProps) {
   const scannerRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,9 +75,20 @@ export default function QrScanner({ onScan, active, unavailableMessage }: QrScan
   if (!active) return null;
 
   return (
-    <div className="w-full">
-      <div id={ELEMENT_ID} className="mx-auto overflow-hidden rounded-2xl" />
-      {error && <p className="mt-2 text-center text-sm text-red-700">{error}</p>}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6">
+      <div className="w-full max-w-sm rounded-3xl bg-pikol-cream p-6 text-center shadow-xl">
+        <div id={ELEMENT_ID} className="mx-auto overflow-hidden rounded-2xl" />
+        {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-4 text-xs text-pikol-brown/50 underline"
+          >
+            ביטול סריקה
+          </button>
+        )}
+      </div>
     </div>
   );
 }
