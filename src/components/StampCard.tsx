@@ -25,6 +25,7 @@ interface StampCardProps {
   initialBirthday: string | null;
   marketingOptIn: boolean;
   hasBirthdayReward: boolean;
+  aboutUsText: string;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -39,6 +40,7 @@ export default function StampCard({
   initialBirthday,
   marketingOptIn,
   hasBirthdayReward,
+  aboutUsText,
 }: StampCardProps) {
   const router = useRouter();
   const [stamps, setStamps] = useState(initialStamps);
@@ -153,7 +155,7 @@ export default function StampCard({
         marketingOptIn={marketingOptIn}
         hasBirthdayReward={hasBirthdayReward}
       />
-      <AboutUs />
+      <AboutUs aboutUsText={aboutUsText} />
       <Confetti active={justCompletedAt !== null} />
       <Logo size={96} priority />
 

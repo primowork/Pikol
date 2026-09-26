@@ -57,13 +57,17 @@ export default function DashboardClient({ staffName, vapidPublicKey }: Dashboard
         </button>
       </div>
 
-      <div className="flex w-full items-center justify-center gap-4 text-xs text-pikol-brown/60">
+      <div className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-pikol-brown/60">
         <Link href="/staff/stand-qr" className="underline">
           קוד הדוכן להדפסה
         </Link>
         <span className="text-pikol-tan">•</span>
         <Link href="/staff/customers" className="underline">
           מסד הלקוחות
+        </Link>
+        <span className="text-pikol-tan">•</span>
+        <Link href="/staff/settings" className="underline">
+          הגדרות
         </Link>
       </div>
 
