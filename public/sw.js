@@ -81,7 +81,7 @@ self.addEventListener("push", (event) => {
   }
 
   // שני סוגי push חולקים את אותו endpoint: "approval" (בקשת ניקוב מ-/scan,
-  // צריכה כפתורי אישור/דחייה) ו-"broadcast" (הודעה ללקוחות, בלי פעולות -
+  // צריכה כפתורי אישור/דחייה) ו-"broadcast" (פרסומת ללקוחות שאישרו דיוור -
   // ראו BroadcastToCustomers.tsx). ברירת מחדל "approval" לתאימות לאחור.
   const isBroadcast = data.kind === "broadcast";
   const title = data.title || (isBroadcast ? "קפה פיקולו" : "בקשת ניקוב חדשה");
@@ -92,7 +92,11 @@ self.addEventListener("push", (event) => {
     dir: "rtl",
     lang: "he",
     tag: data.approvalRequestId ? `approval-${data.approvalRequestId}` : undefined,
-    data: { kind: data.kind || "approval", approvalRequestId: data.approvalRequestId },
+    data: {
+      kind: data.kind || "approval",
+      approvalRequestId: data.approvalRequestId,
+      customerId: data.customerId,
+    },
     requireInteraction: !isBroadcast,
   };
   if (!isBroadcast) {
@@ -100,16 +104,46 @@ self.addEventListener("push", (event) => {
       { action: "approve", title: "אישור" },
       { action: "decline", title: "דחייה" },
     ];
+  } else if (data.customerId) {
+    // חוק הספאם: אפשרות סירוב בכל הודעה. באנדרואיד זה כפתור בהתראה עצמה;
+    // באייפון אין כפתורי פעולה, ושורת ההסרה בגוף ההודעה מפנה לכרטיס.
+    options.actions = [{ action: "unsubscribe", title: "הסרה מרשימת התפוצה" }];
   }
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
+
+function showSwNotice(title, body) {
+  return self.registration.showNotification(title, {
+    body,
+    icon: "/icons/icon-192.png",
+    dir: "rtl",
+    lang: "he",
+  });
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
   const notifData = event.notification.data || {};
   const approvalRequestId = notifData.approvalRequestId;
+
+  if (event.action === "unsubscribe" && notifData.customerId) {
+    event.waitUntil(
+      fetch(`/api/customers/${notifData.customerId}/marketing-opt-out`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "notification" }),
+      })
+        .then((response) =>
+          response.ok
+            ? showSwNotice("הוסרת מרשימת התפוצה", "לא יישלחו אליך יותר עדכונים ומבצעים מקפה פיקולו.")
+            : showSwNotice("ההסרה לא הושלמה", "אפשר להסיר בכרטיס: הפסקת עדכונים ומבצעים.")
+        )
+        .catch(() => showSwNotice("בעיית תקשורת", "ההסרה לא נשלחה. אפשר להסיר בכרטיס: הפסקת עדכונים ומבצעים."))
+    );
+    return;
+  }
 
   if ((event.action === "approve" || event.action === "decline") && approvalRequestId) {
     const endpoint = `/api/approval-requests/${approvalRequestId}/${event.action}`;
@@ -122,23 +156,11 @@ self.addEventListener("notificationclick", (event) => {
           return response
             .json()
             .catch(() => ({}))
-            .then((body) => {
-              self.registration.showNotification("הפעולה לא הושלמה", {
-                body: body.error || "יש לפתוח את הדשבורד ולנסות משם",
-                icon: "/icons/icon-192.png",
-                dir: "rtl",
-                lang: "he",
-              });
-            });
+            .then((body) =>
+              showSwNotice("הפעולה לא הושלמה", body.error || "יש לפתוח את הדשבורד ולנסות משם")
+            );
         })
-        .catch(() => {
-          self.registration.showNotification("בעיית תקשורת", {
-            body: "האישור לא נשלח - יש לפתוח את הדשבורד ולנסות משם",
-            icon: "/icons/icon-192.png",
-            dir: "rtl",
-            lang: "he",
-          });
-        })
+        .catch(() => showSwNotice("בעיית תקשורת", "האישור לא נשלח - יש לפתוח את הדשבורד ולנסות משם"))
     );
     return;
   }

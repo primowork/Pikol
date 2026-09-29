@@ -26,10 +26,19 @@ export async function GET() {
 
     const customers = await prisma.customer.findMany({
       orderBy: { createdAt: "desc" },
-      select: { name: true, phone: true, currentStamps: true, rewardsEarned: true, createdAt: true },
+      select: {
+        name: true,
+        phone: true,
+        currentStamps: true,
+        rewardsEarned: true,
+        createdAt: true,
+        marketingOptIn: true,
+      },
     });
 
-    const header = ["שם", "טלפון", "ניקובים נוכחיים", "פרסים שמומשו", "תאריך הצטרפות"];
+    // עמודת ההסכמה חשובה: מי שמוציא את הרשימה לאקסל כדי לשלוח SMS או
+    // וואטסאפ צריך לדעת למי מותר לשלוח פרסומת ולמי לא.
+    const header = ["שם", "טלפון", "ניקובים נוכחיים", "פרסים שמומשו", "תאריך הצטרפות", "אישר/ה דיוור"];
     const rows = customers.map((customer) =>
       [
         customer.name,
@@ -37,6 +46,7 @@ export async function GET() {
         String(customer.currentStamps),
         String(customer.rewardsEarned),
         formatDate(customer.createdAt),
+        customer.marketingOptIn ? "כן" : "לא",
       ]
         .map(csvEscape)
         .join(",")

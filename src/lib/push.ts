@@ -2,7 +2,8 @@ import webpush from "web-push";
 import { prisma } from "./db";
 import { APPROVAL_REQUEST_TIMEOUT_SECONDS } from "./config";
 import { PushNotConfiguredError } from "./errors";
-import { getVapidSubject } from "./business-settings";
+import { getBroadcastSenderLine, getVapidSubject } from "./business-settings";
+import { formatCustomerBroadcast } from "./broadcast-format";
 import type { BroadcastAudience, CustomerBroadcastResult } from "@/types";
 
 // חתימת VAPID מוגדרת מחדש רק כש-subject בפועל משתנה (לא flag בוליאני קבוע) -
@@ -94,15 +95,28 @@ export async function sendApprovalPush(
  * כמה לקוחות (ייחודיים, לא מכשירים) יקבלו שידור אם יישלח עכשיו - לתצוגה
  * המקדימה בדשבורד. ensureConfigured קודם, כדי ש-VAPID שבור יתגלה כבר
  * בפתיחת חלון השידור ולא רק אחרי שבעל העסק ניסח ולחץ "שליחה".
+ *
+ * שידור הוא דבר פרסומת, ולכן נשלח רק למי שאישר דיוור (marketingOptIn).
+ * withoutConsentCount הם לקוחות שהפעילו התראות בלי לאשר, כדי שבעל העסק
+ * יבין למה הם לא נספרים.
  */
 export async function getCustomerBroadcastAudience(): Promise<BroadcastAudience> {
   await ensureConfigured();
 
-  const customers = await prisma.customerPushSubscription.findMany({
-    distinct: ["customerId"],
-    select: { customerId: true },
-  });
-  return { customerCount: customers.length };
+  const [withConsent, withoutConsent, senderLine] = await Promise.all([
+    prisma.customerPushSubscription.findMany({
+      where: { customer: { marketingOptIn: true } },
+      distinct: ["customerId"],
+      select: { customerId: true },
+    }),
+    prisma.customerPushSubscription.findMany({
+      where: { customer: { marketingOptIn: false } },
+      distinct: ["customerId"],
+      select: { customerId: true },
+    }),
+    getBroadcastSenderLine(),
+  ]);
+  return { customerCount: withConsent.length, withoutConsentCount: withoutConsent.length, senderLine };
 }
 
 /** תקציר קצר של כישלון שליחה - תשובת שירות ה-push (body) אומרת הכי הרבה. */
@@ -117,10 +131,24 @@ function describePushFailure(reason: unknown): string {
   return text.replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
+interface CustomerBroadcastInput {
+  title: string;
+  body: string;
+  /** מי שלח - תמיד מה-session, לעולם לא מגוף הבקשה. */
+  staffId: string;
+  /** מתי השולח אישר שההודעה יוצאת בשם העסק ובאחריותו. */
+  acknowledgedAt: Date;
+}
+
 /**
- * שידור ידני מהצוות לכל הלקוחות שנרשמו ל-Web Push (opt-in). בלי כפתורי
- * פעולה - זו הודעה פשוטה, לא בקשה לאישור/דחייה (ראו kind:"broadcast"
- * ב-sw.js). אותו דפוס allSettled + ניקוי endpoint שפג תוקף כמו למעלה.
+ * שידור ידני מהצוות ללקוחות שאישרו דיוור (marketingOptIn) והפעילו התראות.
+ * כפתור הפעולה היחיד בהתראה הוא הסרה מרשימת התפוצה (ראו kind:"broadcast"
+ * ב-sw.js), ולכן ה-payload של כל מכשיר כולל את ה-customerId שלו. אותו
+ * דפוס allSettled + ניקוי endpoint שפג תוקף כמו למעלה.
+ *
+ * הנוסח שנשלח ונשמר ביומן (Broadcast) הוא הסופי, עם "פרסומת", שם העסק
+ * ודרך ההסרה (formatCustomerBroadcast). שורת היומן נוצרת לפני השליחה,
+ * כך שגם שליחה שנקטעה באמצע משאירה תיעוד של מי שלח ומה.
  *
  * מחזירה פירוט ולא רק מספר: "נשלח ל-0" יכול לנבוע מזה שאין מנויים בכלל,
  * מדחייה של שירות ה-push (למשל 403 כשמפתחות VAPID הוחלפו אחרי שהלקוחות
@@ -128,21 +156,37 @@ function describePushFailure(reason: unknown): string {
  * דחייה (לא 404/410) לא נמחקת בכוונה: מפתח פרטי שהוגדר לא נכון היה
  * מוחק ככה את ההרשמות של כל הלקוחות בבת אחת.
  */
-export async function sendCustomerBroadcast(title: string, body: string): Promise<CustomerBroadcastResult> {
+export async function sendCustomerBroadcast(input: CustomerBroadcastInput): Promise<CustomerBroadcastResult> {
   await ensureConfigured();
 
-  const subscriptions = await prisma.customerPushSubscription.findMany();
+  const [subscriptions, senderLine] = await Promise.all([
+    prisma.customerPushSubscription.findMany({ where: { customer: { marketingOptIn: true } } }),
+    getBroadcastSenderLine(),
+  ]);
+  const message = formatCustomerBroadcast(input.title, input.body, senderLine);
+
+  const broadcast = await prisma.broadcast.create({
+    data: {
+      staffId: input.staffId,
+      title: message.title,
+      body: message.body,
+      audienceCount: new Set(subscriptions.map((sub) => sub.customerId)).size,
+      sentCount: 0,
+      failedCount: 0,
+      removedCount: 0,
+      acknowledgedAt: input.acknowledgedAt,
+    },
+  });
+
   if (subscriptions.length === 0) {
     return { sentCount: 0, failedCount: 0, removedCount: 0, failureReason: null };
   }
-
-  const payload = JSON.stringify({ kind: "broadcast", title, body });
 
   const results = await Promise.allSettled(
     subscriptions.map((sub) =>
       webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        payload,
+        JSON.stringify({ kind: "broadcast", ...message, customerId: sub.customerId }),
         { TTL: 60 * 60 * 24, urgency: "normal" }
       )
     )
@@ -171,10 +215,15 @@ export async function sendCustomerBroadcast(title: string, body: string): Promis
     await prisma.customerPushSubscription.deleteMany({ where: { endpoint: { in: staleEndpoints } } });
   }
 
-  return {
+  const result = {
     sentCount: reachedCustomerIds.size,
     failedCount,
     removedCount: staleEndpoints.length,
     failureReason,
   };
+  await prisma.broadcast.update({
+    where: { id: broadcast.id },
+    data: { sentCount: result.sentCount, failedCount: result.failedCount, removedCount: result.removedCount },
+  });
+  return result;
 }

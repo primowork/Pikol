@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { BUSINESS_NAME } from "@/lib/config";
 import { useBackToClose } from "@/lib/use-back-to-close";
 
 interface BirthdayGiftProps {
   customerId: string;
   initialBirthday: string | null;
   marketingOptIn: boolean;
+  /** נקרא אחרי שמירה שבה הלקוח סימן גם את תיבת ההסכמה לדיוור. */
+  onMarketingOptIn: () => void;
   hasBirthdayReward: boolean;
 }
 
@@ -25,8 +28,9 @@ function daysUntilNextBirthday(birthdayStr: string, today: Date): number {
  * איקון מתנה קבוע בפינת המסך - בלחיצה נפתח פופ-אפ שמבטיח קפה חינם
  * ביום ההולדת ואוסף את התאריך. אפשר לפתוח שוב כדי לעדכן תאריך שכבר
  * נשמר (input מתמלא מראש מ-initialBirthday). אם הלקוח עדיין לא הסכים
- * לדיוור שיווקי (marketingOptIn), מוצגת כאן תיבת הסכמה ייעודית ליום
- * הולדת - הזדמנות נוספת להסכים בלי לחזור על כל טופס ההצטרפות.
+ * לדיוור שיווקי (marketingOptIn), מוצגת כאן תיבת הסכמה - הזדמנות נוספת
+ * להסכים בלי לחזור על כל טופס ההצטרפות. הנוסח שלה מכסה במפורש גם עדכונים
+ * ומבצעים, כי הסימון מכניס לאותה רשימת תפוצה של השידורים.
  *
  * hasBirthdayReward (מהשרת - הזיכוי בפועל, ראו src/lib/birthday-reward.ts)
  * מפעיל אפקט זוהר על האיקון עצמו; כשאין זיכוי אבל יש תאריך שמור, מוצג
@@ -36,6 +40,7 @@ export default function BirthdayGift({
   customerId,
   initialBirthday,
   marketingOptIn,
+  onMarketingOptIn,
   hasBirthdayReward,
 }: BirthdayGiftProps) {
   const [open, setOpen] = useState(false);
@@ -75,15 +80,13 @@ export default function BirthdayGift({
     event.preventDefault();
     if (!birthday) return;
     setStatus("saving");
+    const optingIn = !marketingOptIn && birthdayMarketingOptIn;
 
     try {
       const res = await fetch(`/api/customers/${customerId}/birthday`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          birthday,
-          ...(marketingOptIn ? {} : { marketingOptIn: birthdayMarketingOptIn }),
-        }),
+        body: JSON.stringify({ birthday, ...(optingIn ? { marketingOptIn: true } : {}) }),
       });
 
       if (!res.ok) {
@@ -93,6 +96,10 @@ export default function BirthdayGift({
 
       setStatus("saved");
       setSavedBirthday(birthday);
+      if (optingIn) {
+        setBirthdayMarketingOptIn(false);
+        onMarketingOptIn();
+      }
       closeTimerRef.current = window.setTimeout(() => {
         closeTimerRef.current = null;
         setOpen(false);
@@ -168,7 +175,10 @@ export default function BirthdayGift({
                       onChange={(event) => setBirthdayMarketingOptIn(event.target.checked)}
                       className="mt-0.5"
                     />
-                    <span>אני מאשר/ת לשלוח לי ברכות והטבות יום הולדת ייעודיות.</span>
+                    <span>
+                      אני מאשר/ת לקבל מ{BUSINESS_NAME} הטבות יום הולדת, עדכונים ומבצעים. אפשר להפסיק
+                      בכל עת בכרטיס.
+                    </span>
                   </label>
                 </div>
               )}

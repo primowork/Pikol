@@ -77,9 +77,26 @@ export interface PendingApprovalRequest {
   customer: { id: string; name: string };
 }
 
+/**
+ * פרטי העסק שמוצגים ללקוחות (src/lib/business-settings.ts). בית הקפה הוא
+ * בעל השליטה במאגר והמפרסם בשידורים. שדה שלא מולא הוא null.
+ */
+export interface BusinessDetails {
+  legalName: string | null;
+  businessNumber: string | null;
+  address: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+}
+
 /** GET /api/broadcast - כמה לקוחות יקבלו שידור אם יישלח עכשיו (לתצוגה המקדימה). */
 export interface BroadcastAudience {
+  /** לקוחות שאישרו דיוור ויש להם לפחות מכשיר אחד עם התראות. */
   customerCount: number;
+  /** לקוחות עם התראות פעילות שלא אישרו דיוור - לא יקבלו את השידור. */
+  withoutConsentCount: number;
+  /** שם העסק (וטלפון אם הוגדר) שיופיע בסוף ההודעה - לתצוגה המקדימה. */
+  senderLine: string;
 }
 
 /** POST /api/broadcast - פירוט מה קרה בשליחה, כדי ש"0" לא יישאר בלי הסבר. */

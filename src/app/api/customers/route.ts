@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { joinSchema } from "@/lib/validation";
 import { normalizePhone } from "@/lib/phone";
 import { requireStaff } from "@/lib/auth";
+import { getConsentIp } from "@/lib/consent";
 import { handleApiError, ValidationError } from "@/lib/errors";
 
 /**
@@ -41,25 +42,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!parsed.data.name) {
+    const { name } = parsed.data;
+    if (!name) {
       // עדיין לא נוצר כלום - רק מבקשים מה-UI לחשוף שדה שם ולשלוח שוב.
       return NextResponse.json({ existing: false, needsName: true }, { status: 200 });
     }
 
     // IP נשמר לצורך תיעוד הסכמה בר-הוכחה (audit-ready) - תואם Railway/רוב
     // ה-reverse proxies. null בפיתוח מקומי כשאין header - לא קריטי, לא זורק.
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    const consentIp = forwardedFor?.split(",")[0]?.trim() ?? null;
+    const consentIp = getConsentIp(request);
+    const marketingOptIn = parsed.data.marketingOptIn ?? false;
 
-    const customer = await prisma.customer.create({
-      data: {
-        name: parsed.data.name,
-        phone,
-        termsAccepted: true,
-        marketingOptIn: parsed.data.marketingOptIn ?? false,
-        consentedAt: new Date(),
-        consentIp,
-      },
+    // השדות על Customer הם המצב האחרון; היומן (ConsentEvent) שומר גם את
+    // ההיסטוריה, באותה טרנזקציה כדי שלא ייווצר לקוח בלי תיעוד ההסכמה שלו.
+    const customer = await prisma.$transaction(async (tx) => {
+      const created = await tx.customer.create({
+        data: {
+          name,
+          phone,
+          termsAccepted: true,
+          marketingOptIn,
+          consentedAt: new Date(),
+          consentIp,
+        },
+      });
+      await tx.consentEvent.createMany({
+        data: [
+          { customerId: created.id, kind: "TERMS_ACCEPTED", source: "join", ip: consentIp },
+          ...(marketingOptIn
+            ? [{ customerId: created.id, kind: "MARKETING_OPT_IN" as const, source: "join", ip: consentIp }]
+            : []),
+        ],
+      });
+      return created;
     });
 
     return NextResponse.json(

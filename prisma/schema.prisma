@@ -32,13 +32,20 @@ enum ApprovalRequestKind {
   REDEEM
 }
 
+enum ConsentKind {
+  TERMS_ACCEPTED
+  MARKETING_OPT_IN
+  MARKETING_OPT_OUT
+}
+
 // לקוח שנרשם למועדון. currentStamps הוא מקור האמת היחיד למספר הניקובים -
 // הוא נכתב אך ורק דרך /api/stamps, לעולם לא ישירות מקלט של הלקוח.
 //
-// שדות הסכמה (termsAccepted/marketingOptIn/consentedAt/consentIp): נשמרים
-// רק בהצטרפות לקוח חדש (POST /api/customers, כשנשלח גם name) - לקוח קיים
-// שחוזר לא "מסכים" שוב בכל כניסה. consentedAt מתעדכן שוב אם הלקוח מסמן
-// הסכמת שיווק מאוחר יותר (למשל בפופ-אפ יום ההולדת) אחרי שסירב בהצטרפות.
+// שדות הסכמה (termsAccepted/marketingOptIn/consentedAt/consentIp): המצב
+// האחרון בלבד. נקבעים בהצטרפות לקוח חדש (POST /api/customers, כשנשלח גם
+// name) - לקוח קיים שחוזר לא "מסכים" שוב בכל כניסה - ו-marketingOptIn
+// משתנה אחר כך רק דרך setMarketingConsent (src/lib/consent.ts), שרושם גם
+// שורה ב-ConsentEvent. consentedAt/consentIp מתעדכנים בכל הסכמה לדיוור.
 model Customer {
   id                        String                     @id @default(cuid())
   name                      String
@@ -57,6 +64,24 @@ model Customer {
   stampEvents               StampEvent[]
   approvalRequests          ApprovalRequest[]
   customerPushSubscriptions CustomerPushSubscription[]
+  consentEvents             ConsentEvent[]
+}
+
+// יומן הסכמות: כל הסכמה או הסרה של לקוח נרשמת כאן ולא נדרסת (השדות על
+// Customer שומרים רק את המצב האחרון). בחוק הספאם נטל ההוכחה שהנמען הסכים
+// הוא על המפרסם, כלומר על בית הקפה - זה התיעוד שלו.
+model ConsentEvent {
+  id         String      @id @default(cuid())
+  customerId String
+  kind       ConsentKind
+  /** מאיפה: join | birthday | notifications | card | notification */
+  source     String
+  ip         String?
+  createdAt  DateTime    @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
 }
 
 // חבר צוות / בעל העסק. יכול להתחבר לדשבורד הניהול ולהוסיף ניקובים.
@@ -77,6 +102,27 @@ model StaffUser {
   pushSubscriptions   PushSubscription[]
   approvalResponses   ApprovalRequest[]
   passwordResetTokens PasswordResetToken[]
+  broadcasts          Broadcast[]
+}
+
+// יומן שידורים ללקוחות: מה נשלח בדיוק, מתי, מי שלח, ומתי אישר שההודעה
+// יוצאת בשם העסק ובאחריותו. staff עם Restrict כמו ב-StampEvent - לא מוחקים
+// חבר צוות שיש לו היסטוריה.
+model Broadcast {
+  id             String   @id @default(cuid())
+  staffId        String
+  title          String
+  body           String
+  audienceCount  Int
+  sentCount      Int
+  failedCount    Int
+  removedCount   Int
+  acknowledgedAt DateTime
+  createdAt      DateTime @default(now())
+
+  staff StaffUser @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
 }
 
 // קישור איפוס סיסמה שנשלח במייל. נשמר רק hash של הטוקן (SHA-256) - מי
@@ -172,9 +218,18 @@ model CustomerPushSubscription {
 // אם אין שורה, או שדה ספציפי ריק, הקוד נופל לברירת מחדל (טקסט קבוע ל-
 // aboutUsText, משתנה הסביבה VAPID_SUBJECT ל-vapidSubject) - אין צורך
 // במיגרציית seed. ראו src/lib/business-settings.ts.
+//
+// פרטי העסק (legalName...contactEmail): בית הקפה הוא בעל השליטה במאגר
+// והמפרסם בשידורים, והפרטים שלו מוצגים במדיניות הפרטיות, בתנאי השימוש
+// ובכרטיס - חובה בחוק הספאם ובחוק הגנת הפרטיות.
 model BusinessSettings {
-  id           String   @id
-  aboutUsText  String?
-  vapidSubject String?
-  updatedAt    DateTime @updatedAt
+  id             String   @id
+  aboutUsText    String?
+  vapidSubject   String?
+  legalName      String?
+  businessNumber String?
+  address        String?
+  contactPhone   String?
+  contactEmail   String?
+  updatedAt      DateTime @updatedAt
 }

@@ -27,3 +27,8 @@ export function normalizePhone(raw: string): string | null {
 
   return digits;
 }
+
+/** קישור חיוג לטלפון כפי שהוקלד בהגדרות ("03-123 4567"): רק ספרות ו-+. */
+export function toTelHref(phone: string): string {
+  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+}

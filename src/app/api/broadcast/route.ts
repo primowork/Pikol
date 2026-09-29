@@ -20,10 +20,14 @@ export async function GET() {
   }
 }
 
-/** שידור הודעה ידני לכל הלקוחות שנרשמו ל-Web Push. staff בלבד. */
+/**
+ * שידור הודעה ידני ללקוחות שאישרו דיוור. staff בלבד, ורק אחרי שהשולח
+ * אישר בתצוגה המקדימה שההודעה יוצאת בשם העסק ובאחריותו (acknowledged).
+ * כל שידור נרשם ביומן Broadcast עם השולח מה-session.
+ */
 export async function POST(request: NextRequest) {
   try {
-    await requireStaff();
+    const staff = await requireStaff();
 
     const body = await request.json().catch(() => null);
     const parsed = broadcastSchema.safeParse(body);
@@ -31,7 +35,12 @@ export async function POST(request: NextRequest) {
       throw new ValidationError(parsed.error.issues[0]?.message ?? "בקשה לא תקינה");
     }
 
-    const result = await sendCustomerBroadcast(parsed.data.title, parsed.data.body);
+    const result = await sendCustomerBroadcast({
+      title: parsed.data.title,
+      body: parsed.data.body,
+      staffId: staff.sub,
+      acknowledgedAt: new Date(),
+    });
 
     return NextResponse.json(result);
   } catch (err) {

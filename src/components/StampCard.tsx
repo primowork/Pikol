@@ -7,14 +7,15 @@ import Logo from "./Logo";
 import CupIcon from "./CupIcon";
 import QrScanner from "./QrScanner";
 import Confetti from "./Confetti";
-import NotificationSubscribe from "./NotificationSubscribe";
+import MarketingPreferences from "./MarketingPreferences";
 import InstallPrompt from "./InstallPrompt";
 import BirthdayGift from "./BirthdayGift";
 import AboutUs from "./AboutUs";
+import BusinessFooter from "./BusinessFooter";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import { getTimeBasedGreeting } from "@/lib/greeting";
 import { useBackToClose } from "@/lib/use-back-to-close";
-import type { CustomerCardState } from "@/types";
+import type { BusinessDetails, CustomerCardState } from "@/types";
 
 interface StampCardProps {
   customerId: string;
@@ -24,9 +25,10 @@ interface StampCardProps {
   initialRewardsEarned: number;
   vapidPublicKey: string;
   initialBirthday: string | null;
-  marketingOptIn: boolean;
+  initialMarketingOptIn: boolean;
   hasBirthdayReward: boolean;
   aboutUsText: string;
+  businessDetails: BusinessDetails;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -39,11 +41,15 @@ export default function StampCard({
   initialRewardsEarned,
   vapidPublicKey,
   initialBirthday,
-  marketingOptIn,
+  initialMarketingOptIn,
   hasBirthdayReward,
   aboutUsText,
+  businessDetails,
 }: StampCardProps) {
   const router = useRouter();
+  // משותף לפופ-אפ יום ההולדת (תיבת הסכמה רק למי שעוד לא אישר) ולאזור
+  // הדיוור (כפתור ההסרה רק למי שאישר), כדי ששניהם יתעדכנו יחד
+  const [marketingOptIn, setMarketingOptIn] = useState(initialMarketingOptIn);
   const [stamps, setStamps] = useState(initialStamps);
   const [rewardsEarned, setRewardsEarned] = useState(initialRewardsEarned);
   const [justStampedAt, setJustStampedAt] = useState<number | null>(null);
@@ -158,6 +164,7 @@ export default function StampCard({
         customerId={customerId}
         initialBirthday={initialBirthday}
         marketingOptIn={marketingOptIn}
+        onMarketingOptIn={() => setMarketingOptIn(true)}
         hasBirthdayReward={hasBirthdayReward}
       />
       <AboutUs aboutUsText={aboutUsText} />
@@ -248,19 +255,16 @@ export default function StampCard({
         </p>
       )}
 
-      <NotificationSubscribe
+      <MarketingPreferences
+        customerId={customerId}
         vapidPublicKey={vapidPublicKey}
-        subscribeUrl={`/api/customers/${customerId}/push-subscription`}
-        buttonLabel="הפעלת התראות על מבצעים ועדכונים"
-        subscribedLabel="התראות פעילות במכשיר הזה"
-        unsupportedLabel="התראות לא נתמכות בדפדפן הזה. באייפון צריך קודם להוסיף את הכרטיס למסך הבית ולפתוח אותו משם."
+        optedIn={marketingOptIn}
+        onOptedInChange={setMarketingOptIn}
       />
 
       <InstallPrompt />
 
-      <Link href="/staff/login" className="text-xs text-pikol-brown/40 underline">
-        כניסת צוות
-      </Link>
+      <BusinessFooter details={businessDetails} />
     </main>
   );
 }

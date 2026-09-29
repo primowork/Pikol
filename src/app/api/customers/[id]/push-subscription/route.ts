@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { pushSubscriptionSchema, pushUnsubscribeSchema } from "@/lib/validation";
+import { getConsentIp, setMarketingConsent } from "@/lib/consent";
 import { handleApiError, NotFoundError, ValidationError } from "@/lib/errors";
 
 /**
  * האם המכשיר הזה (לפי endpoint) רשום לשידורים של הלקוח הזה. NotificationSubscribe
  * שואל את זה בטעינה, כי לדפדפן יש מינוי push אחד לכל האתר (service worker
  * יחיד) - מינוי שנוצר בדשבורד הצוות לא אומר שהמכשיר רשום גם כלקוח.
+ *
+ * נחשב רשום רק אם הלקוח גם אישר דיוור: שידורים נשלחים רק למי שאישר
+ * (src/lib/push.ts), ומינוי ישן בלי הסכמה צריך להציג שוב את הכפתור -
+ * לחיצה עליו רושמת את ההסכמה.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -18,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const subscription = await prisma.customerPushSubscription.findFirst({
-      where: { endpoint, customerId: id },
+      where: { endpoint, customerId: id, customer: { marketingOptIn: true } },
       select: { id: true },
     });
 
@@ -33,6 +38,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
  * הבלתי-נחוש בנתיב (בדיוק כמו GET /api/customers/[id]), לא session.
  * upsert לפי endpoint - מטפל גם ברענון דף וגם במעבר בין לקוחות באותו
  * מכשיר (למשל מכשיר משפחתי משותף).
+ *
+ * הלחיצה על "הפעלת התראות על מבצעים ועדכונים", עם טקסט ההסכמה שמתחת
+ * לכפתור, היא הסכמה מפורשת לדיוור - נרשמת יחד עם המינוי ביומן ההסכמות.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -50,10 +58,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const { endpoint, keys } = parsed.data.subscription;
 
-    const subscription = await prisma.customerPushSubscription.upsert({
-      where: { endpoint },
-      create: { customerId: id, endpoint, p256dh: keys.p256dh, auth: keys.auth },
-      update: { customerId: id, p256dh: keys.p256dh, auth: keys.auth },
+    const subscription = await prisma.$transaction(async (tx) => {
+      const saved = await tx.customerPushSubscription.upsert({
+        where: { endpoint },
+        create: { customerId: id, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+        update: { customerId: id, p256dh: keys.p256dh, auth: keys.auth },
+      });
+      await setMarketingConsent(
+        { customerId: id, optIn: true, source: "notifications", ip: getConsentIp(request) },
+        tx
+      );
+      return saved;
     });
 
     return NextResponse.json({ id: subscription.id }, { status: 201 });
