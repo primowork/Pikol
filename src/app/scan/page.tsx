@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import BackLink from "@/components/BackLink";
 import CupIcon, { type CupStatus } from "@/components/CupIcon";
 import Confetti from "@/components/Confetti";
 import { BUSINESS_NAME } from "@/lib/config";
@@ -44,6 +45,8 @@ export default function ScanPage() {
   const [justCompletedAt, setJustCompletedAt] = useState<number | null>(null);
   const [greeting, setGreeting] = useState<string | null>(null);
   const [activeKind, setActiveKind] = useState<"STAMP" | "REDEEM">("STAMP");
+  const [cardMissing, setCardMissing] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const requestIdRef = useRef<string | null>(null);
   const stampsRequired = customerState?.stampsRequired ?? 10;
   const currentStamps = customerState?.currentStamps ?? 0;
@@ -71,18 +74,32 @@ export default function ScanPage() {
     let cancelled = false;
 
     async function loadCustomer() {
+      setCustomerId(storedId);
       try {
         const res = await fetch(`/api/customers/${storedId}`, { cache: "no-store" });
         if (cancelled) return;
 
+        if (res.status === 404) {
+          // המזהה השמור במכשיר כבר לא קיים - מוחקים אותו, אחרת גם הכרטיס
+          // ועמוד הבית ימשיכו להפנות אליו
+          try {
+            window.localStorage.removeItem("pikol_customer_id");
+          } catch {
+            // לא קריטי
+          }
+          setCardMissing(true);
+          setErrorMessage("לא מצאנו את הכרטיס שלך. אפשר להיכנס שוב עם מספר הטלפון.");
+          setScreen("error");
+          return;
+        }
+
         if (!res.ok) {
-          setErrorMessage("לא נמצא כרטיס - אפשר להיכנס מחדש");
+          setErrorMessage("משהו השתבש בטעינת הכרטיס, נסו שוב");
           setScreen("error");
           return;
         }
 
         const data: CustomerCardState = await res.json();
-        setCustomerId(storedId);
         setCustomerState(data);
         setScreen("selecting");
       } catch {
@@ -96,7 +113,7 @@ export default function ScanPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, loadAttempt]);
 
   useEffect(() => {
     if (screen !== "waiting") return;
@@ -183,7 +200,14 @@ export default function ScanPage() {
 
   function handleRetry() {
     setSelectedQuantity(0);
-    setScreen("selecting");
+    setErrorMessage(null);
+    if (customerState) {
+      setScreen("selecting");
+      return;
+    }
+    // הכרטיס עצמו לא נטען (תקלת רשת) - טוענים שוב
+    setScreen("loading");
+    setLoadAttempt((attempt) => attempt + 1);
   }
 
   const filledInRound = currentStamps === 0 ? 0 : ((currentStamps - 1) % stampsRequired) + 1;
@@ -227,9 +251,9 @@ export default function ScanPage() {
             בקשת מימוש הפרס
           </button>
           {customerId && (
-            <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
+            <BackLink href={`/card/${customerId}`} replace className="text-sm text-pikol-teal underline">
               לצפייה בכרטיס שלי
-            </Link>
+            </BackLink>
           )}
         </div>
       )}
@@ -250,9 +274,9 @@ export default function ScanPage() {
             <div className="flex flex-col items-center gap-2">
               <p className="font-semibold text-pikol-brown">הפרס מומש! 🎉</p>
               {customerId && (
-                <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
+                <BackLink href={`/card/${customerId}`} replace className="text-sm text-pikol-teal underline">
                   לצפייה בכרטיס שלי
-                </Link>
+                </BackLink>
               )}
             </div>
           )}
@@ -306,9 +330,9 @@ export default function ScanPage() {
             <div className="mt-4 flex flex-col items-center gap-2">
               <p className="font-semibold text-pikol-brown">הניקוב אושר! ☕️</p>
               {customerId && (
-                <Link href={`/card/${customerId}`} className="text-sm text-pikol-teal underline">
+                <BackLink href={`/card/${customerId}`} replace className="text-sm text-pikol-teal underline">
                   לצפייה בכרטיס שלי
-                </Link>
+                </BackLink>
               )}
             </div>
           )}
@@ -333,7 +357,35 @@ export default function ScanPage() {
         </div>
       )}
 
-      {screen === "error" && <p className="text-sm text-red-700">{errorMessage ?? "משהו השתבש, נסו שוב"}</p>}
+      {screen === "error" && (
+        <div className="flex w-full flex-col items-center gap-3 rounded-2xl border border-pikol-tan/40 bg-white/60 p-6">
+          <p className="text-sm text-red-700">{errorMessage ?? "משהו השתבש, נסו שוב"}</p>
+          {cardMissing ? (
+            <Link
+              href="/join"
+              replace
+              className="rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream"
+            >
+              כניסה עם מספר טלפון
+            </Link>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream"
+              >
+                לנסות שוב
+              </button>
+              {customerId && (
+                <BackLink href={`/card/${customerId}`} replace className="text-sm text-pikol-teal underline">
+                  חזרה לכרטיס
+                </BackLink>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </main>
   );
 }

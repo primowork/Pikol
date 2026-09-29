@@ -4,6 +4,7 @@ import "./globals.css";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import ChromeIosTopFix from "@/components/ChromeIosTopFix";
+import NavigationTracker from "@/components/NavigationTracker";
 
 const heebo = Heebo({
   subsets: ["hebrew", "latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <ServiceWorkerRegister />
         <ChromeIosTopFix />
+        <NavigationTracker />
       </body>
     </html>
   );

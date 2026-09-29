@@ -52,6 +52,13 @@ export class RateLimitedError extends ApiError {
   }
 }
 
+/** קישור איפוס סיסמה שלא קיים, שכבר נוצל, או שפג תוקפו. */
+export class InvalidResetTokenError extends ApiError {
+  constructor() {
+    super(400, "הקישור לא תקין או שפג תוקפו. אפשר לבקש קישור חדש.", { code: "invalid_token" });
+  }
+}
+
 /** ניסיון ליצור בקשת אישור נוספת לאותו לקוח זמן קצר אחרי הקודמת. */
 export class ApprovalRequestCooldownError extends ApiError {
   constructor(retryAfterSeconds: number) {

@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import { BUSINESS_NAME } from "@/lib/config";
+import { staffFetch } from "@/lib/staff-fetch";
+import { useBackToClose } from "@/lib/use-back-to-close";
 import type { BroadcastAudience, CustomerBroadcastResult } from "@/types";
 
 type Step = "compose" | "preview" | "sent";
@@ -44,7 +46,7 @@ export default function BroadcastToCustomers() {
     setAudienceLoading(true);
 
     try {
-      const res = await fetch("/api/broadcast");
+      const res = await staffFetch("/api/broadcast");
       const data = await res.json();
       if (!res.ok) {
         setAudienceError(data.error ?? "לא הצלחנו לבדוק כמה לקוחות רשומים להתראות");
@@ -64,6 +66,8 @@ export default function BroadcastToCustomers() {
     setErrorMessage(null);
   }
 
+  useBackToClose(open, closeModal);
+
   function handlePreview(event: FormEvent) {
     event.preventDefault();
     if (!title.trim() || !body.trim()) {
@@ -79,7 +83,7 @@ export default function BroadcastToCustomers() {
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/broadcast", {
+      const res = await staffFetch("/api/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, body }),
@@ -190,8 +194,18 @@ export default function BroadcastToCustomers() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6">
-          <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-pikol-cream p-6 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeModal();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={heading}
+            className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-pikol-cream p-6 shadow-xl"
+          >
             <h2 className="mb-3 text-sm font-semibold text-pikol-brown">{heading}</h2>
 
             {step === "compose" && (

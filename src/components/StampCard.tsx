@@ -13,6 +13,7 @@ import BirthdayGift from "./BirthdayGift";
 import AboutUs from "./AboutUs";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import { getTimeBasedGreeting } from "@/lib/greeting";
+import { useBackToClose } from "@/lib/use-back-to-close";
 import type { CustomerCardState } from "@/types";
 
 interface StampCardProps {
@@ -51,6 +52,7 @@ export default function StampCard({
   const [scanError, setScanError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState<string | null>(null);
   const isMountedRef = useRef(true);
+  const scannerHistory = useBackToClose(scannerActive, () => setScannerActive(false));
 
   useEffect(() => {
     function applyGreeting() {
@@ -130,8 +132,6 @@ export default function StampCard({
   const totalCoffeesEver = stamps + rewardsEarned * stampsRequired;
 
   function handleScan(decodedText: string) {
-    setScannerActive(false);
-
     let pathname = decodedText.trim();
     try {
       pathname = new URL(decodedText).pathname;
@@ -140,10 +140,15 @@ export default function StampCard({
     }
 
     if (pathname === "/scan" || pathname.endsWith("/scan")) {
-      router.push("/scan");
+      // replace ולא push: עמוד הבקשה תופס את מקום רשומת החלון של הסורק,
+      // כך ש"חזרה" ממנו מגיעה ישר לכרטיס ולא לסורק שנסגר
+      scannerHistory.closeForNavigation();
+      setScannerActive(false);
+      router.replace("/scan");
       return;
     }
 
+    setScannerActive(false);
     setScanError("זה לא נראה כמו קוד הדוכן של קפה פיקולו. אפשר לנסות שוב.");
   }
 

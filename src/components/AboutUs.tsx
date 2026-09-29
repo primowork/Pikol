@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { INSTAGRAM_URL } from "@/lib/config";
+import { useBackToClose } from "@/lib/use-back-to-close";
 
 interface AboutUsProps {
   aboutUsText: string;
@@ -19,6 +20,7 @@ interface AboutUsProps {
  */
 export default function AboutUs({ aboutUsText }: AboutUsProps) {
   const [open, setOpen] = useState(false);
+  useBackToClose(open, () => setOpen(false));
   const paragraphs = aboutUsText
     .split(/\n\s*\n/)
     .map((paragraph) => paragraph.trim())
@@ -35,8 +37,18 @@ export default function AboutUs({ aboutUsText }: AboutUsProps) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6">
-          <div className="max-h-[80vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-pikol-cream p-6 text-right shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="קצת עלינו"
+            className="max-h-[80vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-pikol-cream p-6 text-right shadow-xl"
+          >
             <h2 className="mb-3 text-lg font-semibold text-pikol-brown">קצת עלינו</h2>
 
             <div className="space-y-3 text-sm leading-relaxed text-pikol-brown/80">

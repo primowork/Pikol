@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import Logo from "@/components/Logo";
+import BackLink from "@/components/BackLink";
 import { BUSINESS_NAME, STAMPS_REQUIRED } from "@/lib/config";
+import { staffFetch } from "@/lib/staff-fetch";
 import type { CustomerListItem } from "@/types";
 
 interface CustomersDashboardClientProps {
@@ -35,30 +36,33 @@ export default function CustomersDashboardClient({
   openRewardLiability,
   initialCustomers,
 }: CustomersDashboardClientProps) {
-  const [searchResults, setSearchResults] = useState<CustomerListItem[] | null>(null);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<{ query: string; customers: CustomerListItem[]; failed: boolean } | null>(
+    null
+  );
 
   // בלי חיפוש פעיל מציגים ישירות את initialCustomers (מחושב ברינדור,
   // לא "מאופס" דרך effect) - נמנע מתבנית ה-derived-state הבעייתית.
-  const customers = search.trim() ? (searchResults ?? []) : initialCustomers;
+  // תוצאות שייכות לחיפוש מסוים: עד שמגיעות תוצאות לחיפוש הנוכחי מוצג
+  // "מחפש…" (עם התוצאות הקודמות), ולא "לא נמצאו לקוחות" שהבהב בזמן הקלדה.
+  const query = search.trim();
+  const searching = query !== "" && results?.query !== query;
+  const searchFailed = query !== "" && results?.query === query && results.failed;
+  const customers = query ? (results?.customers ?? []) : initialCustomers;
 
   useEffect(() => {
-    if (!search.trim()) return;
+    if (!query) return;
 
     let cancelled = false;
 
     const timeout = window.setTimeout(async () => {
-      setLoading(true);
       try {
-        const res = await fetch(`/api/customers?search=${encodeURIComponent(search.trim())}`);
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        setSearchResults(data.customers ?? []);
+        const res = await staffFetch(`/api/customers?search=${encodeURIComponent(query)}`);
+        const data = res.ok ? await res.json() : null;
+        if (cancelled) return;
+        setResults({ query, customers: data?.customers ?? [], failed: !data });
       } catch {
-        // תקלת רשת זמנית - הרשימה הקודמת נשארת מוצגת
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setResults({ query, customers: [], failed: true });
       }
     }, SEARCH_DEBOUNCE_MS);
 
@@ -66,7 +70,7 @@ export default function CustomersDashboardClient({
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [search]);
+  }, [query]);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-5 px-4 py-6">
@@ -78,17 +82,20 @@ export default function CustomersDashboardClient({
             <p className="text-xs text-pikol-brown/60">מסד הלקוחות</p>
           </div>
         </div>
-        <Link href="/staff/dashboard" className="text-xs text-pikol-brown/50 underline">
+        <BackLink href="/staff/dashboard" className="text-xs text-pikol-brown/50 underline">
           חזרה לדשבורד
-        </Link>
+        </BackLink>
       </div>
 
-      <Link
+      {/* <a> רגיל ולא Link: זו הורדת קובץ מ-API, לא מעבר עמוד (Link גם היה
+          טוען אותה מראש ברקע בכל כניסה לעמוד) */}
+      <a
         href="/api/customers/export"
+        download
         className="w-full rounded-full border border-pikol-teal px-4 py-2 text-center text-sm font-semibold text-pikol-teal"
       >
         ייצוא לאקסל (CSV)
-      </Link>
+      </a>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-pikol-tan/40 bg-white/60 p-4 text-center">
@@ -128,13 +135,18 @@ export default function CustomersDashboardClient({
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder="חיפוש לפי שם או טלפון"
+        autoComplete="off"
         className="w-full rounded-xl border border-pikol-tan/50 bg-white/70 px-4 py-2 text-pikol-brown outline-none focus:border-pikol-teal"
       />
 
       <div className="flex flex-col gap-2">
-        {loading && <p className="text-center text-xs text-pikol-brown/50">מחפש…</p>}
+        {searching && <p className="text-center text-xs text-pikol-brown/50">מחפש…</p>}
 
-        {!loading && customers.length === 0 && (
+        {searchFailed && (
+          <p className="text-center text-xs text-red-700">החיפוש נכשל, אפשר לנסות שוב</p>
+        )}
+
+        {!searching && !searchFailed && customers.length === 0 && (
           <p className="text-center text-sm text-pikol-brown/60">לא נמצאו לקוחות</p>
         )}
 

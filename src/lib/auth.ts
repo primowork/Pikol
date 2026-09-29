@@ -1,72 +1,44 @@
-import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from "./config";
+import { SESSION_COOKIE_NAME } from "./config";
+import { prisma } from "./db";
 import { UnauthorizedError } from "./errors";
+import {
+  createSessionToken,
+  sessionCookieOptions,
+  verifySessionToken,
+  type SessionPayload,
+  type VerifiedSession,
+} from "./session";
 
 /**
- * ניהול session של הצוות: JWT חתום (jose - תואם Edge runtime, נחוץ כי
- * src/proxy.ts רץ שם) בתוך cookie httpOnly. staffId (השדה sub) הוא
- * המזהה היחיד שמותר להשתמש בו בעת כתיבת StampEvent - הוא תמיד מגיע
- * מכאן ולעולם לא מגוף הבקשה של הלקוח.
+ * ניהול session של הצוות: JWT חתום (ראו lib/session.ts) בתוך cookie
+ * httpOnly. staffId (השדה sub) הוא המזהה היחיד שמותר להשתמש בו בעת
+ * כתיבת StampEvent - הוא תמיד מגיע מכאן ולעולם לא מגוף הבקשה של הלקוח.
  */
 
-export interface SessionPayload {
-  sub: string; // StaffUser.id
+export type { SessionPayload } from "./session";
+
+interface StaffForSession {
+  id: string;
   username: string;
   name: string;
   role: "OWNER" | "STAFF";
+  sessionVersion: number;
 }
 
-function getSecretKey(): Uint8Array {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) {
-    throw new Error("חסר משתנה הסביבה SESSION_SECRET");
-  }
-  return new TextEncoder().encode(secret);
-}
-
-const maxAgeDays = Math.floor(SESSION_MAX_AGE_SECONDS / 86400);
-
-export async function createSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${maxAgeDays}d`)
-    .sign(getSecretKey());
-}
-
-export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecretKey());
-    if (
-      typeof payload.sub === "string" &&
-      typeof payload.username === "string" &&
-      typeof payload.name === "string" &&
-      (payload.role === "OWNER" || payload.role === "STAFF")
-    ) {
-      return {
-        sub: payload.sub,
-        username: payload.username,
-        name: payload.name,
-        role: payload.role,
-      };
-    }
-    return null;
-  } catch {
-    // חתימה לא תקינה, פג תוקף, או JWT מעוות - כל אלה נחשבים "לא מחובר"
-    return null;
-  }
-}
-
-export async function setSessionCookie(token: string): Promise<void> {
+/** מנפיק session חדש ושומר אותו ב-cookie: כניסה, איפוס סיסמה, החלפת סיסמה. */
+export async function startStaffSession(staff: StaffForSession, remember: boolean): Promise<void> {
+  const payload: SessionPayload = {
+    sub: staff.id,
+    username: staff.username,
+    name: staff.name,
+    role: staff.role,
+    remember,
+    sessionVersion: staff.sessionVersion,
+  };
+  const token = await createSessionToken(payload);
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  cookieStore.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(remember));
 }
 
 export async function clearSessionCookie(): Promise<void> {
@@ -74,12 +46,26 @@ export async function clearSessionCookie(): Promise<void> {
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
 
-/** מחזיר את חבר הצוות המחובר, או null אם אין session תקף. */
-export async function getCurrentStaff(): Promise<SessionPayload | null> {
+/**
+ * מחזיר את חבר הצוות המחובר, או null אם אין session תקף. מעבר לחתימה
+ * ולתוקף, בודק מול המסד שהחשבון עדיין קיים ושהסיסמה לא הוחלפה מאז
+ * שהטוקן הונפק (sessionVersion) - כך איפוס סיסמה מנתק גם מכשיר שנגנב.
+ */
+export async function getCurrentStaff(): Promise<VerifiedSession | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+
+  const session = await verifySessionToken(token);
+  if (!session) return null;
+
+  const staff = await prisma.staffUser.findUnique({
+    where: { id: session.sub },
+    select: { sessionVersion: true },
+  });
+  if (!staff || staff.sessionVersion !== session.sessionVersion) return null;
+
+  return session;
 }
 
 /**
@@ -87,7 +73,7 @@ export async function getCurrentStaff(): Promise<SessionPayload | null> {
  * זורק UnauthorizedError אם אין session תקף - זו ההגנה האמיתית, לא
  * proxy.ts שהוא רק נוחות UI.
  */
-export async function requireStaff(): Promise<SessionPayload> {
+export async function requireStaff(): Promise<VerifiedSession> {
   const staff = await getCurrentStaff();
   if (!staff) {
     throw new UnauthorizedError();

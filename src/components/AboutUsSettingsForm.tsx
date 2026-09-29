@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { staffFetch } from "@/lib/staff-fetch";
 
 interface AboutUsSettingsFormProps {
   initialText: string;
@@ -20,7 +21,7 @@ export default function AboutUsSettingsForm({ initialText }: AboutUsSettingsForm
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/settings/about-us", {
+      const res = await staffFetch("/api/settings/about-us", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ aboutUsText: text }),

@@ -21,6 +21,17 @@ body {
   padding-top: var(--ios-top-fix, 0px);
 }
 
+/* אייפון מגדיל את כל הדף כשנוגעים בשדה עם גופן קטן מ-16 פיקסלים, והדף
+   נשאר מוגדל גם אחרי היציאה מהשדה. במסכי מגע כל שדה מקבל 16 - כלל מחוץ
+   לשכבות של Tailwind, ולכן גובר על text-sm שעל השדות עצמם. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 /* אנימציית ה"הטבעה" של כוס שזה עתה נוקבה - סקייל קטן שנרגע לגודל רגיל. */
 @keyframes stamp-in {
   0% {

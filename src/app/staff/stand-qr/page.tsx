@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import Link from "next/link";
 import QRCode from "qrcode";
 import { getCurrentStaff } from "@/lib/auth";
+import { loginPathWithNext } from "@/lib/staff-paths";
 import Logo from "@/components/Logo";
+import BackLink from "@/components/BackLink";
 import PrintButton from "@/components/PrintButton";
 import { BUSINESS_NAME } from "@/lib/config";
 
@@ -16,7 +17,7 @@ import { BUSINESS_NAME } from "@/lib/config";
 export default async function StandQrPage() {
   const staff = await getCurrentStaff();
   if (!staff) {
-    redirect("/staff/login");
+    redirect(loginPathWithNext("/staff/stand-qr"));
   }
 
   const headersList = await headers();
@@ -34,9 +35,9 @@ export default async function StandQrPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-4 py-8 text-center">
-      <Link href="/staff/dashboard" className="self-start text-sm text-pikol-brown/50 underline">
+      <BackLink href="/staff/dashboard" className="self-start text-sm text-pikol-brown/50 underline">
         חזרה לדשבורד
-      </Link>
+      </BackLink>
 
       <Logo size={80} />
       <div>

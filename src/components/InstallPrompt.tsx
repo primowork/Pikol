@@ -8,6 +8,8 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const STANDALONE_QUERY = "(display-mode: standalone)";
+const DISMISSED_UNTIL_KEY = "pikol_install_prompt_dismissed_until";
+const DISMISS_DAYS = 14;
 
 // useSyncExternalStore - לא useState+useEffect - כי window.matchMedia לא
 // קיים בזמן server render (getServerSnapshot מחזיר false), וזה גם נמנע
@@ -34,7 +36,8 @@ function getServerDisplayModeSnapshot() {
  */
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  // מוסתר עד שבודקים אם הלקוח כבר ביקש "לא עכשיו" - בלי הבזק של התיבה
+  const [dismissed, setDismissed] = useState(true);
   const isStandalone = useSyncExternalStore(
     subscribeToDisplayMode,
     getDisplayModeSnapshot,
@@ -49,6 +52,32 @@ export default function InstallPrompt() {
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
+
+  // "לא עכשיו" נזכר לשבועיים. קודם התיבה חזרה בכל פתיחה של הכרטיס.
+  useEffect(() => {
+    function restoreDismissal() {
+      let dismissedUntil = 0;
+      try {
+        dismissedUntil = Number(window.localStorage.getItem(DISMISSED_UNTIL_KEY)) || 0;
+      } catch {
+        dismissedUntil = 0;
+      }
+      setDismissed(dismissedUntil > Date.now());
+    }
+    restoreDismissal();
+  }, []);
+
+  function handleDismiss() {
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(
+        DISMISSED_UNTIL_KEY,
+        String(Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000)
+      );
+    } catch {
+      // localStorage חסום - התיבה פשוט תחזור בפעם הבאה
+    }
+  }
 
   if (isStandalone || dismissed) return null;
 
@@ -76,7 +105,7 @@ export default function InstallPrompt() {
       )}
       <button
         type="button"
-        onClick={() => setDismissed(true)}
+        onClick={handleDismiss}
         className="mt-2 block w-full text-xs text-pikol-brown/60 underline"
       >
         לא עכשיו

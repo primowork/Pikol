@@ -25,6 +25,11 @@ export default function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  function handleChangePhone() {
+    setStep("phone");
+    setError(null);
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -52,7 +57,8 @@ export default function JoinPage() {
         return;
       }
 
-      router.push(`/card/${data.id}`);
+      // replace: "חזרה" מהכרטיס לא מחזירה לטופס שכבר מולא
+      router.replace(`/card/${data.id}`);
     } catch {
       setError("בעיית תקשורת - נסו שוב");
       setSubmitting(false);
@@ -78,14 +84,23 @@ export default function JoinPage() {
         )}
 
         <div>
-          <label htmlFor="phone" className="mb-1 block text-sm font-medium text-pikol-brown">
-            מספר טלפון
-          </label>
+          <div className="mb-1 flex items-center justify-between">
+            <label htmlFor="phone" className="block text-sm font-medium text-pikol-brown">
+              מספר טלפון
+            </label>
+            {step === "name" && (
+              <button type="button" onClick={handleChangePhone} className="text-xs text-pikol-teal underline">
+                שינוי מספר
+              </button>
+            )}
+          </div>
           <input
             id="phone"
             type="tel"
             required
             dir="ltr"
+            inputMode="tel"
+            autoComplete="tel"
             disabled={step === "name"}
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
@@ -104,6 +119,7 @@ export default function JoinPage() {
               type="text"
               required
               autoFocus
+              autoComplete="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="w-full rounded-xl border border-pikol-tan/50 bg-white/70 px-4 py-3 text-pikol-brown outline-none focus:border-pikol-teal"

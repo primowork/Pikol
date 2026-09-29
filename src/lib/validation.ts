@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { STAMPS_REQUIRED } from "./config";
+import { PASSWORD_MIN_LENGTH, STAMPS_REQUIRED } from "./config";
 
 /**
  * טופס "כניסה/הצטרפות" חכם אחד ("/join"): תמיד שולח טלפון; שם אופציונלי -
@@ -19,10 +19,47 @@ export const joinSchema = z
     path: ["termsAccepted"],
   });
 
-/** התחברות צוות. */
+/** התחברות צוות. remember ("להישאר מחובר") חסר נחשב כן, כמו ברירת המחדל בטופס. */
 export const loginSchema = z.object({
   username: z.string().trim().min(1, "יש להזין שם משתמש"),
   password: z.string().min(1, "יש להזין סיסמה"),
+  remember: z.boolean().default(true),
+});
+
+/**
+ * סיסמת צוות חדשה. bcrypt מתעלם מכל מה שאחרי 72 הבייטים הראשונים, ולכן
+ * סיסמה ארוכה מזה נדחית במקום להיחתך בשקט (תו עברי תופס שני בייטים).
+ */
+export const newPasswordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, `הסיסמה צריכה להכיל לפחות ${PASSWORD_MIN_LENGTH} תווים`)
+  .refine((value) => new TextEncoder().encode(value).length <= 72, "הסיסמה ארוכה מדי");
+
+/** בקשת קישור איפוס: שם משתמש או כתובת מייל. */
+export const forgotPasswordSchema = z.object({
+  identifier: z.string().trim().min(1, "יש להזין שם משתמש או מייל").max(200, "ארוך מדי"),
+});
+
+/** קביעת סיסמה חדשה מקישור שנשלח במייל. */
+export const resetPasswordSchema = z.object({
+  token: z.string().trim().min(20, "הקישור לא תקין").max(200, "הקישור לא תקין"),
+  password: newPasswordSchema,
+});
+
+/** החלפת סיסמה של המחובר (עמוד ההגדרות). */
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "יש להזין את הסיסמה הנוכחית"),
+  newPassword: newPasswordSchema,
+});
+
+/** המייל של חבר הצוות, לשחזור סיסמה. ריק = הסרה. */
+export const staffEmailSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200, "כתובת ארוכה מדי")
+    .refine((value) => value === "" || z.email().safeParse(value).success, "כתובת המייל לא תקינה"),
 });
 
 /** הוספת/מימוש ניקוב - הפעולה הביטחונית המרכזית. */

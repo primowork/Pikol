@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentStaff } from "@/lib/auth";
+import { loginPathWithNext } from "@/lib/staff-paths";
 import { STAMPS_REQUIRED } from "@/lib/config";
 import CustomersDashboardClient from "./CustomersDashboardClient";
 
@@ -54,7 +55,7 @@ async function getPeakHourAndDay() {
 export default async function CustomersPage() {
   const staff = await getCurrentStaff();
   if (!staff) {
-    redirect("/staff/login");
+    redirect(loginPathWithNext("/staff/customers"));
   }
 
   const windowStart = getRetentionWindowStart();

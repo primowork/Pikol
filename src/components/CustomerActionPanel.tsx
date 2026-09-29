@@ -3,6 +3,7 @@
 import { useState } from "react";
 import CupIcon from "./CupIcon";
 import { STAMPS_REQUIRED } from "@/lib/config";
+import { staffFetch } from "@/lib/staff-fetch";
 import type { ActiveCustomer, ApiErrorBody } from "@/types";
 
 interface CustomerActionPanelProps {
@@ -28,7 +29,7 @@ export default function CustomerActionPanel({
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/stamps", {
+      const res = await staffFetch("/api/stamps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customerId: customer.id, action }),

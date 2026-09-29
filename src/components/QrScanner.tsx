@@ -75,8 +75,18 @@ export default function QrScanner({ onScan, active, onClose, unavailableMessage 
   if (!active) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6">
-      <div className="w-full max-w-sm rounded-3xl bg-pikol-cream p-6 text-center shadow-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="סריקת קוד"
+        className="w-full max-w-sm rounded-3xl bg-pikol-cream p-6 text-center shadow-xl"
+      >
         <div id={ELEMENT_ID} className="mx-auto overflow-hidden rounded-2xl" />
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
         {onClose && (

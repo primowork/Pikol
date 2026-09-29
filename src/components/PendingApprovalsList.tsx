@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { staffFetch } from "@/lib/staff-fetch";
 import type { ActiveCustomer, PendingApprovalRequest } from "@/types";
 
 interface PendingApprovalsListProps {
@@ -8,6 +9,7 @@ interface PendingApprovalsListProps {
 }
 
 const POLL_INTERVAL_MS = 6000;
+const NOTICE_DURATION_MS = 4000;
 
 function quantityLabel(quantity: number): string {
   return quantity === 1 ? "ניקוב אחד" : `${quantity} ניקובים`;
@@ -26,14 +28,19 @@ function requestLabel(request: PendingApprovalRequest): string {
 export default function PendingApprovalsList({ onApproved }: PendingApprovalsListProps) {
   const [requests, setRequests] = useState<PendingApprovalRequest[]>([]);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // העלאה שלו מסנכרנת מיד מול השרת (בלי לחכות לפעימה הבאה)
+  const [syncToken, setSyncToken] = useState(0);
   const seenIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
 
+    // 401 (session שנגמר) מעביר למסך הכניסה דרך staffFetch - קודם זה נבלע
+    // בשקט, והדשבורד נראה חי בזמן שבקשות חדשות פשוט לא הופיעו
     async function poll() {
       try {
-        const res = await fetch("/api/approval-requests", { cache: "no-store" });
+        const res = await staffFetch("/api/approval-requests", { cache: "no-store" });
         if (!res.ok || cancelled) return;
         const data = await res.json();
         const incoming: PendingApprovalRequest[] = data.requests ?? [];
@@ -61,26 +68,44 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [syncToken]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(null), NOTICE_DURATION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
 
   async function respond(id: string, action: "approve" | "decline") {
     setPendingActionId(id);
+    setNotice(null);
     try {
-      const res = await fetch(`/api/approval-requests/${id}/${action}`, { method: "POST" });
-      const data = await res.json();
+      const res = await staffFetch(`/api/approval-requests/${id}/${action}`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
         setRequests((prev) => prev.filter((request) => request.id !== id));
         if (action === "approve" && data.customer) {
           onApproved(data.customer);
         }
+        return;
       }
+
+      // קודם כישלון לא הראה כלום והבקשה נשארה תקועה על המסך. עכשיו מציגים
+      // למה, ומסנכרנים מול השרת: בקשה שכבר טופלה או שפג תוקפה יורדת מהמסך,
+      // ובקשה שעדיין ממתינה (למשל ניקוב שנוסף לפני רגע) נשארת לניסיון נוסף.
+      setNotice(data.error ?? "משהו השתבש, נסו שוב");
+      setSyncToken((token) => token + 1);
+    } catch {
+      setNotice("בעיית תקשורת - נסו שוב");
     } finally {
       setPendingActionId(null);
     }
   }
 
-  if (requests.length === 0) return null;
+  if (requests.length === 0) {
+    return notice ? <p className="w-full text-center text-sm text-pikol-brown">{notice}</p> : null;
+  }
 
   const nextRequest = requests[0];
 
@@ -89,7 +114,7 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
       {/* פופ-אפ מסך מלא: אי אפשר לפספס, כפתורי ענק, בלי כפתור סגירה -
           התגובה היחידה היא אישור/דחייה בפועל. עובר אוטומטית לבקשה
           הבאה בתור אחרי שהמענה מגיע (respond מסננת מ-requests). */}
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-pikol-brown/95 p-6 text-center">
+      <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-5 bg-pikol-brown/95 p-6 text-center">
         {requests.length > 1 && (
           <p className="text-sm font-medium text-pikol-cream/70">
             בקשה 1 מתוך {requests.length}
@@ -98,6 +123,9 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
 
         <p className="text-4xl font-bold text-pikol-cream">{nextRequest.customer.name}</p>
         <p className="text-xl text-pikol-cream/90">{requestLabel(nextRequest)}</p>
+        {notice && (
+          <p className="rounded-xl bg-pikol-cream/15 px-4 py-2 text-base text-pikol-cream">{notice}</p>
+        )}
 
         <div className="mt-4 flex w-full max-w-sm flex-col gap-3">
           <button

@@ -18,8 +18,24 @@ export const STAMP_COOLDOWN_SECONDS = 10;
 /** שם הקוקי של session הצוות. */
 export const SESSION_COOKIE_NAME = "pikol_staff_session";
 
-/** לכמה זמן ה-session של הצוות תקף לפני שצריך להתחבר מחדש. */
+/**
+ * "להישאר מחובר" (ברירת המחדל בכניסה): כמה זמן session נשאר תקף בלי שימוש.
+ * כל כניסה לעמוד צוות מחדשת אותו (src/proxy.ts), כך שמכשיר שנמצא בשימוש
+ * קבוע לא מתנתק אף פעם.
+ */
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // חודש
+
+/** בלי "להישאר מחובר" (מכשיר משותף): session קצר שלא מתחדש. */
+export const SHORT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
+
+/** אחרי כמה זמן session "זכור" מקבל טוקן חדש (בכניסה הבאה לעמוד צוות). */
+export const SESSION_RENEW_AFTER_SECONDS = 60 * 60 * 24;
+
+/** כמה זמן קישור איפוס סיסמה שנשלח במייל תקף. */
+export const PASSWORD_RESET_TOKEN_TTL_MINUTES = 30;
+
+/** אורך מינימלי לסיסמת צוות חדשה (איפוס או החלפה). */
+export const PASSWORD_MIN_LENGTH = 8;
 
 /** כמה מיליישניות לשמור מטמון לוגו/סטטי בשירות הרקע (service worker). */
 export const SW_CACHE_NAME = "pikol-shell-v1";
