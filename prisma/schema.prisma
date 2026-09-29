@@ -60,16 +60,38 @@ model Customer {
 }
 
 // חבר צוות / בעל העסק. יכול להתחבר לדשבורד הניהול ולהוסיף ניקובים.
+//
+// email: לשחזור סיסמה בלבד (נקבע בעמוד ההגדרות, או OWNER_EMAIL ב-seed).
+// sessionVersion: נשמר בתוך טוקן ה-session; איפוס או החלפת סיסמה מעלים
+// אותו, וכל טוקן ישן (מכל מכשיר) מפסיק לעבוד - ראו getCurrentStaff.
 model StaffUser {
-  id                String             @id @default(cuid())
-  username          String             @unique
-  passwordHash      String
-  name              String
-  role              StaffRole          @default(STAFF)
-  createdAt         DateTime           @default(now())
-  stampEvents       StampEvent[]
-  pushSubscriptions PushSubscription[]
-  approvalResponses ApprovalRequest[]
+  id                  String               @id @default(cuid())
+  username            String               @unique
+  email               String?              @unique
+  passwordHash        String
+  sessionVersion      Int                  @default(0)
+  name                String
+  role                StaffRole            @default(STAFF)
+  createdAt           DateTime             @default(now())
+  stampEvents         StampEvent[]
+  pushSubscriptions   PushSubscription[]
+  approvalResponses   ApprovalRequest[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// קישור איפוס סיסמה שנשלח במייל. נשמר רק hash של הטוקן (SHA-256) - מי
+// שקורא את המסד לא יכול להשתמש בקישור. חד-פעמי: שימוש מוצלח מוחק את כל
+// הקישורים של אותו חבר צוות.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  staffId   String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  staff StaffUser @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
 }
 
 // יומן ביקורת מלא: כל ניקוב וכל מימוש פרס נרשמים כאן לצמיתות, כולל מי

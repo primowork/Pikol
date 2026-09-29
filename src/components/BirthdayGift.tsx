@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useBackToClose } from "@/lib/use-back-to-close";
 
 interface BirthdayGiftProps {
   customerId: string;
@@ -39,20 +40,36 @@ export default function BirthdayGift({
 }: BirthdayGiftProps) {
   const [open, setOpen] = useState(false);
   const [birthday, setBirthday] = useState(initialBirthday ?? "");
+  // התאריך שכבר שמור בשרת - מתעדכן אחרי שמירה, כדי שהקאונטדאון יתאים לו מיד
+  const [savedBirthday, setSavedBirthday] = useState(initialBirthday);
   const [birthdayMarketingOptIn, setBirthdayMarketingOptIn] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [daysUntilBirthday, setDaysUntilBirthday] = useState<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
+
+  useBackToClose(open, () => setOpen(false));
 
   useEffect(() => {
     function computeCountdown() {
-      if (!initialBirthday || hasBirthdayReward) {
+      if (!savedBirthday || hasBirthdayReward) {
         setDaysUntilBirthday(null);
         return;
       }
-      setDaysUntilBirthday(daysUntilNextBirthday(initialBirthday, new Date()));
+      setDaysUntilBirthday(daysUntilNextBirthday(savedBirthday, new Date()));
     }
     computeCountdown();
-  }, [initialBirthday, hasBirthdayReward]);
+  }, [savedBirthday, hasBirthdayReward]);
+
+  // פתיחה מחדש מתחילה נקי: בלי "נשמר!" מהפעם הקודמת, ובלי שהסגירה
+  // האוטומטית שתוזמנה אחרי השמירה תסגור את החלון החדש באמצע
+  function openModal() {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setStatus("idle");
+    setOpen(true);
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -75,7 +92,11 @@ export default function BirthdayGift({
       }
 
       setStatus("saved");
-      window.setTimeout(() => setOpen(false), 1200);
+      setSavedBirthday(birthday);
+      closeTimerRef.current = window.setTimeout(() => {
+        closeTimerRef.current = null;
+        setOpen(false);
+      }, 1200);
     } catch {
       setStatus("error");
     }
@@ -85,7 +106,7 @@ export default function BirthdayGift({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openModal}
         aria-label="מתנת יום הולדת"
         className={`fixed right-4 top-4 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-pikol-gold text-xl shadow-md ${
           hasBirthdayReward ? "animate-birthday-glow" : ""
@@ -95,8 +116,18 @@ export default function BirthdayGift({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6">
-          <div className="w-full max-w-sm rounded-3xl bg-pikol-cream p-6 text-center shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-pikol-brown/60 p-6"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="מתנת יום הולדת"
+            className="w-full max-w-sm rounded-3xl bg-pikol-cream p-6 text-center shadow-xl"
+          >
             <p className="text-3xl">🎂</p>
 
             {hasBirthdayReward ? (

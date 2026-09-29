@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import IosInstallGuide from "./IosInstallGuide";
+import { detectIosInstallContext, type IosInstallContext } from "@/lib/ios-install";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -8,6 +10,10 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const STANDALONE_QUERY = "(display-mode: standalone)";
+const DISMISSED_UNTIL_KEY = "pikol_install_prompt_dismissed_until";
+const DISMISS_DAYS = 14;
+// "הוספתי" בהדרכה של אייפון - בספארי אין דרך לדעת שהכרטיס כבר במסך הבית
+const INSTALLED_DAYS = 180;
 
 // useSyncExternalStore - לא useState+useEffect - כי window.matchMedia לא
 // קיים בזמן server render (getServerSnapshot מחזיר false), וזה גם נמנע
@@ -18,28 +24,49 @@ function subscribeToDisplayMode(callback: () => void) {
   return () => mql.removeEventListener("change", callback);
 }
 
+// באייפון, מאייקון במסך הבית, navigator.standalone הוא הסימן הוותיק והבטוח
 function getDisplayModeSnapshot() {
-  return window.matchMedia(STANDALONE_QUERY).matches;
+  const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return iosStandalone || window.matchMedia(STANDALONE_QUERY).matches;
 }
 
 function getServerDisplayModeSnapshot() {
   return false;
 }
 
+function subscribeNoop() {
+  return () => {};
+}
+
+// ה-user agent לא משתנה, אז מחשבים פעם אחת (אותו אובייקט בכל קריאה)
+let iosContextCache: IosInstallContext | null | undefined;
+function getIosContextSnapshot() {
+  if (iosContextCache === undefined) {
+    iosContextCache = detectIosInstallContext(navigator.userAgent, navigator.maxTouchPoints ?? 0);
+  }
+  return iosContextCache;
+}
+
+function getServerIosContextSnapshot() {
+  return null;
+}
+
 /**
  * מציע ללקוח להוסיף את הכרטיס למסך הבית. באנדרואיד/כרום אפשר להציג כפתור
- * שמפעיל את תיבת ההתקנה הרשמית של הדפדפן (beforeinstallprompt). ב-iOS
- * Safari אין אירוע כזה בכלל - שם ההוספה היא ידנית דרך תפריט השיתוף,
- * ולכן מוצגת שם הנחיה טקסטואלית קבועה במקום כפתור.
+ * שמפעיל את תיבת ההתקנה הרשמית של הדפדפן (beforeinstallprompt). באייפון
+ * ובאייפד אין אירוע כזה בכלל - שם ההוספה ידנית, ולכן מוצגת הדרכה ויזואלית
+ * לפי הדפדפן (IosInstallGuide).
  */
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  // מוסתר עד שבודקים אם הלקוח כבר ביקש "לא עכשיו" - בלי הבזק של התיבה
+  const [dismissed, setDismissed] = useState(true);
   const isStandalone = useSyncExternalStore(
     subscribeToDisplayMode,
     getDisplayModeSnapshot,
     getServerDisplayModeSnapshot
   );
+  const iosContext = useSyncExternalStore(subscribeNoop, getIosContextSnapshot, getServerIosContextSnapshot);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -50,7 +77,44 @@ export default function InstallPrompt() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+  // "לא עכשיו" נזכר לשבועיים. קודם התיבה חזרה בכל פתיחה של הכרטיס.
+  useEffect(() => {
+    function restoreDismissal() {
+      let dismissedUntil = 0;
+      try {
+        dismissedUntil = Number(window.localStorage.getItem(DISMISSED_UNTIL_KEY)) || 0;
+      } catch {
+        dismissedUntil = 0;
+      }
+      setDismissed(dismissedUntil > Date.now());
+    }
+    restoreDismissal();
+  }, []);
+
+  function dismissFor(days: number) {
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(DISMISSED_UNTIL_KEY, String(Date.now() + days * 24 * 60 * 60 * 1000));
+    } catch {
+      // localStorage חסום - התיבה פשוט תחזור בפעם הבאה
+    }
+  }
+
+  function handleDismiss() {
+    dismissFor(DISMISS_DAYS);
+  }
+
   if (isStandalone || dismissed) return null;
+
+  if (iosContext) {
+    return (
+      <IosInstallGuide
+        context={iosContext}
+        onDismiss={handleDismiss}
+        onInstalled={() => dismissFor(INSTALLED_DAYS)}
+      />
+    );
+  }
 
   async function handleInstallClick() {
     if (!deferredPrompt) return;
@@ -76,7 +140,7 @@ export default function InstallPrompt() {
       )}
       <button
         type="button"
-        onClick={() => setDismissed(true)}
+        onClick={handleDismiss}
         className="mt-2 block w-full text-xs text-pikol-brown/60 underline"
       >
         לא עכשיו

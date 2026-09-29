@@ -25,7 +25,17 @@ function cleanupExpired(now: number) {
   }
 }
 
-/** זורק RateLimitedError אם המפתח הזה חרג ממכסת הניסיונות בחלון הנוכחי. */
+/** כתובת ה-IP של הלקוח מאחורי ה-proxy של Railway (הכתובת הראשונה ב-x-forwarded-for). */
+export function getClientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || "unknown";
+}
+
+/**
+ * זורק RateLimitedError אם המפתח הזה חרג ממכסת הניסיונות בחלון הנוכחי.
+ * משמש גם לשחזור והחלפת סיסמה, עם קידומת במפתח (למשל "forgot:<ip>")
+ * כדי שכל פעולה תספור בנפרד.
+ */
 export function checkLoginRateLimit(key: string): void {
   const now = Date.now();
 

@@ -32,9 +32,10 @@ export default function DashboardClient({ staffName, vapidPublicKey }: Dashboard
     setRefreshKey((key) => key + 1);
   }
 
+  // replace ולא push: "חזרה" אחרי יציאה לא מחזירה לדשבורד ישן מהמטמון
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/staff/login");
+    router.replace("/staff/login");
     router.refresh();
   }
 

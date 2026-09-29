@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { staffFetch } from "@/lib/staff-fetch";
 
 interface VapidSubjectSettingsFormProps {
   initialValue: string;
@@ -24,7 +25,7 @@ export default function VapidSubjectSettingsForm({ initialValue }: VapidSubjectS
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/settings/vapid-subject", {
+      const res = await staffFetch("/api/settings/vapid-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vapidSubject: value }),

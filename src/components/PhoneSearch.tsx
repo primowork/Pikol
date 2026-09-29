@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { staffFetch } from "@/lib/staff-fetch";
 import type { CustomerSearchResult } from "@/types";
 
 interface PhoneSearchProps {
@@ -19,7 +20,7 @@ export default function PhoneSearch({ onFound }: PhoneSearchProps) {
     setSearching(true);
 
     try {
-      const res = await fetch(`/api/customers?phone=${encodeURIComponent(phone)}`);
+      const res = await staffFetch(`/api/customers?phone=${encodeURIComponent(phone)}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -47,6 +48,8 @@ export default function PhoneSearch({ onFound }: PhoneSearchProps) {
         <input
           type="tel"
           dir="ltr"
+          inputMode="tel"
+          autoComplete="off"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
           placeholder="חיפוש לפי מספר טלפון"
@@ -57,7 +60,7 @@ export default function PhoneSearch({ onFound }: PhoneSearchProps) {
           disabled={searching || !phone}
           className="rounded-xl bg-pikol-brown px-4 py-2 font-semibold text-pikol-cream disabled:opacity-50"
         >
-          חיפוש
+          {searching ? "מחפש…" : "חיפוש"}
         </button>
       </form>
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
