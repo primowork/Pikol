@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import { BUSINESS_NAME } from "@/lib/config";
+import { formatCustomerBroadcast } from "@/lib/broadcast-format";
 import { staffFetch } from "@/lib/staff-fetch";
 import { useBackToClose } from "@/lib/use-back-to-close";
 import type { BroadcastAudience, CustomerBroadcastResult } from "@/types";
@@ -15,23 +16,25 @@ function toCount(count: number, one: string, many: string) {
 }
 
 /**
- * שידור ידני לכל הלקוחות שנרשמו ל-Web Push (opt-in בכרטיס האישי). שלב
- * ראשון בתשתית לקמפיינים - כרגע רק שליחה ידנית ("יש עוגה טרייה היום"),
- * לא אוטומטית לפי חוסר פעילות (זה דורש החלטה נפרדת על מנגנון תזמון).
+ * שידור ידני ללקוחות שאישרו קבלת עדכונים ומבצעים והפעילו התראות בכרטיס.
+ * שלב ראשון בתשתית לקמפיינים - כרגע רק שליחה ידנית ("יש עוגה טרייה
+ * היום"), לא אוטומטית לפי חוסר פעילות (זה דורש החלטה נפרדת על מנגנון תזמון).
  *
  * מאחורי כפתור ולא גלוי כברירת מחדל בדשבורד - זו פעולה שיוצאת בבת אחת
  * לכל הלקוחות, לא משהו שרוצים ליד יד בלחיצה שגרתית באמצע המסך. מאותה
- * סיבה יש שלב תצוגה מקדימה לפני השליחה הסופית: איך ההתראה תיראה, וכמה
- * לקוחות יקבלו אותה (נבדק מול השרת בפתיחת החלון).
+ * סיבה יש שלב תצוגה מקדימה לפני השליחה הסופית: ההודעה כפי שתגיע בפועל
+ * (עם "פרסומת", פרטי העסק ודרך ההסרה שהשרת מוסיף), כמה לקוחות יקבלו
+ * אותה, ואישור חובה שההודעה יוצאת בשם העסק ובאחריותו.
  */
 export default function BroadcastToCustomers() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("compose");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [audience, setAudience] = useState<number | null>(null);
+  const [audience, setAudience] = useState<BroadcastAudience | null>(null);
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [audienceError, setAudienceError] = useState<string | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<CustomerBroadcastResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -41,6 +44,7 @@ export default function BroadcastToCustomers() {
     setStep("compose");
     setResult(null);
     setErrorMessage(null);
+    setAcknowledged(false);
     setAudience(null);
     setAudienceError(null);
     setAudienceLoading(true);
@@ -52,7 +56,7 @@ export default function BroadcastToCustomers() {
         setAudienceError(data.error ?? "לא הצלחנו לבדוק כמה לקוחות רשומים להתראות");
         return;
       }
-      setAudience((data as BroadcastAudience).customerCount);
+      setAudience(data as BroadcastAudience);
     } catch {
       setAudienceError("בעיית תקשורת - לא הצלחנו לבדוק כמה לקוחות רשומים להתראות");
     } finally {
@@ -75,6 +79,7 @@ export default function BroadcastToCustomers() {
       return;
     }
     setErrorMessage(null);
+    setAcknowledged(false);
     setStep("preview");
   }
 
@@ -86,7 +91,7 @@ export default function BroadcastToCustomers() {
       const res = await staffFetch("/api/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({ title, body, acknowledged }),
       });
       const data = await res.json();
 
@@ -99,6 +104,7 @@ export default function BroadcastToCustomers() {
       setStep("sent");
       setTitle("");
       setBody("");
+      setAcknowledged(false);
     } catch {
       setErrorMessage("בעיית תקשורת - נסו שוב");
     } finally {
@@ -108,31 +114,47 @@ export default function BroadcastToCustomers() {
 
   function renderAudience() {
     if (audienceLoading) {
-      return <p className="text-xs text-pikol-brown/60">בודקים כמה לקוחות הפעילו התראות…</p>;
+      return <p className="text-xs text-pikol-brown/60">בודקים כמה לקוחות רשומים לעדכונים…</p>;
     }
     if (audienceError) {
       return <p className="text-xs text-red-700">{audienceError}</p>;
     }
     if (audience === null) return null;
-    if (audience === 0) {
+
+    const { customerCount, withoutConsentCount } = audience;
+    const withoutConsentNote =
+      withoutConsentCount > 0 ? (
+        <p className="mt-1">
+          {withoutConsentCount === 1
+            ? "לקוח אחד הפעיל התראות בלי לאשר עדכונים ומבצעים, ולכן לא יקבל את ההודעה."
+            : `${withoutConsentCount} לקוחות הפעילו התראות בלי לאשר עדכונים ומבצעים, ולכן לא יקבלו את ההודעה.`}
+        </p>
+      ) : null;
+
+    if (customerCount === 0) {
       return (
         <div className="rounded-xl bg-pikol-gold/15 p-3 text-xs text-pikol-brown">
           <p className="font-semibold">
-            עדיין אף לקוח לא הפעיל התראות, אז כרגע ההודעה לא תגיע לאף אחד.
+            עדיין אין לקוחות שאישרו עדכונים ומבצעים והפעילו התראות, אז כרגע ההודעה לא תגיע
+            לאף אחד.
           </p>
           <p className="mt-1">
             לקוח מצטרף בלחיצה על &quot;הפעלת התראות על מבצעים ועדכונים&quot; בכרטיס האישי
             שלו. באייפון זה אפשרי רק אחרי שמוסיפים את הכרטיס למסך הבית.
           </p>
+          {withoutConsentNote}
         </div>
       );
     }
     return (
-      <p className="text-xs text-pikol-brown/60">
-        {audience === 1
-          ? "ההודעה תישלח ללקוח אחד שהפעיל התראות בכרטיס שלו."
-          : `ההודעה תישלח ל-${audience} לקוחות שהפעילו התראות בכרטיס שלהם.`}
-      </p>
+      <div className="text-xs text-pikol-brown/60">
+        <p>
+          {customerCount === 1
+            ? "ההודעה תישלח ללקוח אחד שאישר עדכונים ומבצעים והפעיל התראות."
+            : `ההודעה תישלח ל-${customerCount} לקוחות שאישרו עדכונים ומבצעים והפעילו התראות.`}
+        </p>
+        {withoutConsentNote}
+      </div>
     );
   }
 
@@ -149,7 +171,7 @@ export default function BroadcastToCustomers() {
         ) : (
           <p className="text-sm font-semibold text-pikol-brown">
             {nobodyToSend
-              ? "לא נשלח לאף אחד - עדיין אין לקוחות שהפעילו התראות."
+              ? "לא נשלח לאף אחד - עדיין אין לקוחות שאישרו עדכונים ומבצעים והפעילו התראות."
               : "ההודעה לא הגיעה לאף לקוח."}
           </p>
         )}
@@ -182,6 +204,8 @@ export default function BroadcastToCustomers() {
 
   const heading =
     step === "preview" ? "תצוגה מקדימה" : step === "sent" ? "סיכום השליחה" : "שידור הודעה ללקוחות";
+  // הנוסח הסופי, כמו שהשרת ישלח אותו. בלי תשובת שרת (שגיאה) - שם העסק בלבד.
+  const finalMessage = formatCustomerBroadcast(title, body, audience?.senderLine ?? BUSINESS_NAME);
 
   return (
     <>
@@ -253,20 +277,39 @@ export default function BroadcastToCustomers() {
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] text-pikol-brown/50">{BUSINESS_NAME} · עכשיו</p>
-                    <p className="break-words text-sm font-semibold text-pikol-brown">{title.trim()}</p>
+                    <p className="break-words text-sm font-semibold text-pikol-brown">{finalMessage.title}</p>
                     <p className="whitespace-pre-line break-words text-sm text-pikol-brown/80">
-                      {body.trim()}
+                      {finalMessage.body}
                     </p>
                   </div>
                 </div>
 
+                <p className="text-[11px] leading-snug text-pikol-brown/50">
+                  המילה &quot;פרסומת&quot;, שם העסק ודרך ההסרה נוספים לכל הודעה אוטומטית, כפי
+                  שהחוק דורש. באנדרואיד יש בהתראה גם כפתור הסרה.
+                </p>
+
                 {renderAudience()}
+
+                <label className="flex items-start gap-2 rounded-xl border border-pikol-tan/40 bg-white/60 p-3 text-xs text-pikol-brown">
+                  <input
+                    type="checkbox"
+                    checked={acknowledged}
+                    onChange={(event) => setAcknowledged(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    אני מאשר/ת שההודעה נשלחת בשם {BUSINESS_NAME} ובאחריותו, כולל התוכן שלה, ורק
+                    ללקוחות שהסכימו לקבל עדכונים ומבצעים.
+                  </span>
+                </label>
+
                 {errorMessage && <p className="text-sm text-red-700">{errorMessage}</p>}
 
                 <button
                   type="button"
                   onClick={handleSend}
-                  disabled={sending || audience === 0}
+                  disabled={sending || !acknowledged || audience?.customerCount === 0}
                   className="rounded-full bg-pikol-brown px-4 py-3 text-sm font-semibold text-pikol-cream disabled:opacity-60"
                 >
                   {sending ? "שולח…" : "שליחה סופית"}

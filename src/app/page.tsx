@@ -65,9 +65,19 @@ export default function HomePage() {
         הצטרפות למועדון
       </Link>
 
-      <Link href="/staff/login" className="text-xs text-pikol-brown/40 underline">
-        כניסת צוות
-      </Link>
+      <p className="text-xs text-pikol-brown/40">
+        <Link href="/terms" className="underline">
+          תנאי שימוש
+        </Link>
+        {" · "}
+        <Link href="/privacy" className="underline">
+          מדיניות פרטיות
+        </Link>
+        {" · "}
+        <Link href="/staff/login" className="underline">
+          כניסת צוות
+        </Link>
+      </p>
     </main>
   );
 }

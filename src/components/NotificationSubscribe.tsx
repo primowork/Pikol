@@ -9,6 +9,10 @@ interface NotificationSubscribeProps {
   buttonLabel: string;
   subscribedLabel: string;
   unsupportedLabel: string;
+  /** טקסט הסכמה מתחת לכפתור (לקוחות: הלחיצה היא הסכמה לדיוור). */
+  consentNote?: string;
+  /** נקרא אחרי שהשרת רשם את המכשיר בלחיצה על הכפתור. */
+  onSubscribed?: () => void;
 }
 
 type SubscribeState = "idle" | "subscribing" | "subscribed" | "denied" | "error";
@@ -71,6 +75,8 @@ export default function NotificationSubscribe({
   buttonLabel,
   subscribedLabel,
   unsupportedLabel,
+  consentNote,
+  onSubscribed,
 }: NotificationSubscribeProps) {
   const isSupported = useSyncExternalStore(
     subscribeNoop,
@@ -140,6 +146,7 @@ export default function NotificationSubscribe({
       }
 
       setState("subscribed");
+      onSubscribed?.();
     } catch {
       setState("error");
     }
@@ -171,6 +178,7 @@ export default function NotificationSubscribe({
       >
         {state === "subscribing" ? "מפעיל…" : buttonLabel}
       </button>
+      {consentNote && <p className="mt-1 text-[11px] leading-snug text-pikol-brown/50">{consentNote}</p>}
       {state === "denied" && (
         <p className="mt-1 text-xs text-red-700">
           ההרשאה נדחתה - יש לאפשר התראות בהגדרות הדפדפן כדי לקבל התראות אוטומטיות.

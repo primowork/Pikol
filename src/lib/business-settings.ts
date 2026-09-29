@@ -1,4 +1,6 @@
 import { prisma } from "./db";
+import { BUSINESS_NAME } from "./config";
+import type { BusinessDetails } from "@/types";
 
 const SETTINGS_ID = "singleton";
 
@@ -46,4 +48,35 @@ export async function setVapidSubject(vapidSubject: string): Promise<void> {
     create: { id: SETTINGS_ID, vapidSubject },
     update: { vapidSubject },
   });
+}
+
+/**
+ * פרטי העסק שמוצגים ללקוחות: בית הקפה הוא בעל השליטה במאגר והמפרסם
+ * בשידורים, ולכן השם, מספר העוסק ודרכי הקשר שלו מופיעים במדיניות
+ * הפרטיות, בתנאי השימוש, בתחתית הכרטיס, והטלפון גם בכל שידור.
+ * שדה ריק נשמר כ-null.
+ */
+export async function getBusinessDetails(): Promise<BusinessDetails> {
+  const settings = await prisma.businessSettings.findUnique({ where: { id: SETTINGS_ID } });
+  return {
+    legalName: settings?.legalName ?? null,
+    businessNumber: settings?.businessNumber ?? null,
+    address: settings?.address ?? null,
+    contactPhone: settings?.contactPhone ?? null,
+    contactEmail: settings?.contactEmail ?? null,
+  };
+}
+
+export async function setBusinessDetails(details: BusinessDetails): Promise<void> {
+  await prisma.businessSettings.upsert({
+    where: { id: SETTINGS_ID },
+    create: { id: SETTINGS_ID, ...details },
+    update: details,
+  });
+}
+
+/** שם המפרסם ודרך ליצור קשר, לשורה שבסוף כל שידור (formatCustomerBroadcast). */
+export async function getBroadcastSenderLine(): Promise<string> {
+  const { contactPhone } = await getBusinessDetails();
+  return contactPhone ? `${BUSINESS_NAME}, ${contactPhone}` : BUSINESS_NAME;
 }

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { STAMPS_REQUIRED } from "@/lib/config";
 import { grantBirthdayRewardIfDue } from "@/lib/birthday-reward";
-import { getAboutUsText } from "@/lib/business-settings";
+import { getAboutUsText, getBusinessDetails } from "@/lib/business-settings";
 import StampCard from "@/components/StampCard";
 
 export default async function CardPage({
@@ -14,9 +14,10 @@ export default async function CardPage({
 
   await grantBirthdayRewardIfDue(id);
 
-  const [customer, aboutUsText] = await Promise.all([
+  const [customer, aboutUsText, businessDetails] = await Promise.all([
     prisma.customer.findUnique({ where: { id } }),
     getAboutUsText(),
+    getBusinessDetails(),
   ]);
   if (!customer) {
     notFound();
@@ -31,9 +32,10 @@ export default async function CardPage({
       initialRewardsEarned={customer.rewardsEarned}
       vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ""}
       initialBirthday={customer.birthday ? customer.birthday.toISOString().slice(0, 10) : null}
-      marketingOptIn={customer.marketingOptIn}
+      initialMarketingOptIn={customer.marketingOptIn}
       hasBirthdayReward={customer.bonusRewardsAvailable > 0}
       aboutUsText={aboutUsText}
+      businessDetails={businessDetails}
     />
   );
 }

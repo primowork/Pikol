@@ -95,10 +95,43 @@ export const pushUnsubscribeSchema = z.object({
   endpoint: z.string().trim().min(1, "endpoint חסר"),
 });
 
-/** שידור ידני מהצוות לכל הלקוחות שנרשמו להתראות (opt-in). */
+/**
+ * שידור ידני מהצוות ללקוחות שאישרו דיוור. acknowledged: השולח אישר בתצוגה
+ * המקדימה שההודעה יוצאת בשם העסק ובאחריותו - בלי זה השרת לא שולח.
+ */
 export const broadcastSchema = z.object({
   title: z.string().trim().min(1, "כותרת חסרה").max(80, "כותרת ארוכה מדי"),
   body: z.string().trim().min(1, "תוכן חסר").max(200, "תוכן ארוך מדי"),
+  acknowledged: z.literal(true, { error: "יש לאשר שההודעה נשלחת בשם העסק ובאחריותו" }),
+});
+
+/** הסרה מדיוור: מהכרטיס (card) או מכפתור ההסרה בהתראה עצמה (notification). */
+export const marketingOptOutSchema = z.object({
+  source: z.enum(["card", "notification"], { error: "בקשה לא תקינה" }),
+});
+
+/** שדה טקסט אופציונלי בפרטי העסק: ריק נשמר כ-null. */
+function optionalDetail(max: number) {
+  return z
+    .string()
+    .trim()
+    .max(max, "הטקסט ארוך מדי")
+    .transform((value) => value || null);
+}
+
+/** פרטי העסק שמוצגים ללקוחות (/staff/settings). כל השדות אופציונליים. */
+export const businessDetailsSchema = z.object({
+  legalName: optionalDetail(100),
+  businessNumber: optionalDetail(20),
+  address: optionalDetail(150),
+  contactPhone: optionalDetail(30),
+  contactEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200, "כתובת ארוכה מדי")
+    .refine((value) => value === "" || z.email().safeParse(value).success, "כתובת המייל לא תקינה")
+    .transform((value) => value || null),
 });
 
 /**
