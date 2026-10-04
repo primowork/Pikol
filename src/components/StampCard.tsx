@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "./Logo";
 import CupIcon from "./CupIcon";
@@ -12,6 +11,7 @@ import InstallPrompt from "./InstallPrompt";
 import BirthdayGift from "./BirthdayGift";
 import AboutUs from "./AboutUs";
 import BusinessFooter from "./BusinessFooter";
+import TermsUpdateNotice from "./TermsUpdateNotice";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import { getTimeBasedGreeting } from "@/lib/greeting";
 import { useBackToClose } from "@/lib/use-back-to-close";
@@ -29,6 +29,8 @@ interface StampCardProps {
   hasBirthdayReward: boolean;
   aboutUsText: string;
   businessDetails: BusinessDetails;
+  /** הלקוח אישר גרסה קודמת של תקנון המועדון - מציגים את פס העדכון. */
+  needsTermsApproval: boolean;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -45,6 +47,7 @@ export default function StampCard({
   hasBirthdayReward,
   aboutUsText,
   businessDetails,
+  needsTermsApproval,
 }: StampCardProps) {
   const router = useRouter();
   // משותף לפופ-אפ יום ההולדת (תיבת הסכמה רק למי שעוד לא אישר) ולאזור
@@ -158,6 +161,15 @@ export default function StampCard({
     setScanError("זה לא נראה כמו קוד הדוכן של קפה פיקולו. אפשר לנסות שוב.");
   }
 
+  // כשהמצלמה לא נפתחת (אין הרשאה, טלפון ישן) - עדיין אפשר לבקש ניקוב. הבקשה
+  // ממילא מחכה לאישור הצוות, כך שהסריקה היא נוחות ולא ההגנה. מוצג רק בתוך
+  // חלון הסורק אחרי כישלון, לא כקישור קבוע בכרטיס.
+  function requestWithoutCamera() {
+    scannerHistory.closeForNavigation();
+    setScannerActive(false);
+    router.replace("/scan");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 px-4 py-8 text-center">
       <BirthdayGift
@@ -179,6 +191,8 @@ export default function StampCard({
       <p className="text-lg">
         {greeting ?? "שלום"} <span className="font-semibold">{initialName}</span>, הנה הכרטיס שלך
       </p>
+
+      {needsTermsApproval && <TermsUpdateNotice customerId={customerId} />}
 
       <div
         className={`w-full rounded-3xl border-2 p-6 shadow-sm transition-colors ${
@@ -205,7 +219,7 @@ export default function StampCard({
 
         {rewardsAvailable && (
           <p className="mt-3 rounded-xl bg-pikol-gold/30 px-3 py-2 font-semibold text-pikol-brown">
-            מגיע לך משקה חינם! תראו את הכרטיס לבעל הקפה במעמד הקנייה 🎉
+            מגיע לך קפה חינם! תראו את הכרטיס לבעל הקפה במעמד הקנייה 🎉
           </p>
         )}
       </div>
@@ -234,14 +248,19 @@ export default function StampCard({
             active={scannerActive}
             onScan={handleScan}
             onClose={() => setScannerActive(false)}
-            unavailableMessage="לא הצלחנו לגשת למצלמה. אפשר ללחוץ למטה במקום."
+            unavailableMessage="לא הצלחנו לגשת למצלמה."
+            fallback={
+              <button
+                type="button"
+                onClick={requestWithoutCamera}
+                className="w-full rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream"
+              >
+                בקשת ניקוב בלי מצלמה
+              </button>
+            }
           />
 
           {scanError && <p className="text-sm text-red-700">{scanError}</p>}
-
-          <Link href="/scan" className="text-xs text-pikol-teal underline">
-            או לבקשת ניקוב בלי מצלמה
-          </Link>
         </div>
       )}
 
@@ -251,7 +270,7 @@ export default function StampCard({
 
       {rewardsEarned > 0 && (
         <p className="text-xs text-pikol-brown/50">
-          סה&quot;כ מימשתם {rewardsEarned} משקאות חינם עד היום
+          סה&quot;כ מימשתם {rewardsEarned} כוסות קפה חינם עד היום
         </p>
       )}
 

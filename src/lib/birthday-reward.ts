@@ -1,52 +1,64 @@
 import { prisma } from "./db";
-
-/**
- * מחלץ שנה/חודש/יום לפי השעון הישראלי (לא UTC) - "היום" של העסק, לא
- * של השרת. אותו עיקרון בדיוק כמו חישובי השעה/יום בשבוע ב-staff/customers
- * (AT TIME ZONE כפול ב-SQL) - כאן זה בקוד, לא ב-SQL, אז Intl.DateTimeFormat
- * במקום מחרוזת+פענוח חוזר (toLocaleString->new Date) שיכול להיות שביר.
- */
-function getIsraelDateParts(date: Date): { year: number; month: number; day: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Jerusalem",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).formatToParts(date);
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  return { year: get("year"), month: get("month"), day: get("day") };
-}
+import { israelToday } from "./age";
 
 /**
  * בדיקה+זיכוי "עצלן" (lazy) של מתנת יום הולדת - בלי שום job מתוזמן.
  * נקרא מכל מקום שכבר שולף מצב לקוח בפועל (GET /api/customers/[id],
- * וגם card/[id]/page.tsx ב-SSR הראשוני) - בדיוק כמו שתפוגת תוקף של
- * בקשת אישור כבר נגזרת מגיל הרשומה בכל קריאה, בלי כתיבה יזומה ל-DB.
- * הלקוח יראה את הזיכוי בתוך שניות מהרגע שהוא פותח את האפליקציה ביום
- * ההולדת עצמו (polling קיים כל 6 שניות), בלי תשתית תזמון חדשה.
+ * וגם card/[id]/page.tsx ב-SSR הראשוני).
  *
- * lastBirthdayRewardYear מונע זיכוי כפול באותה שנה. ה-updateMany עם
- * ה-guard בתוך ה-where הוא ה-atomic claim שמונע מרוץ בין שני polls
- * בו-זמנית שמזכים פעמיים.
+ * לפי התקנון (פרק 6): כוס קפה חינם פעם בשנה, שאפשר לממש בכל יום בחודש
+ * יום ההולדת, ופגה בסוף החודש. לכן:
+ * - זיכוי: בכל כניסה בחודש יום ההולדת (שעון ישראל) אם עוד לא זוכה השנה.
+ *   לא תלוי ביום המדויק, אז גם מי שנולד בעשרים ותשעה בפברואר מקבל.
+ * - תפוגה: birthdayRewardGrantedAt מסמן מתנה שזוכתה ועוד לא מומשה (המימוש
+ *   מנקה אותו, src/lib/stamp-actions.ts). כשהחודש של הזיכוי נגמר, יחידת
+ *   הבונוס הזו יורדת - גם אם הלקוח שינה את התאריך באמצע. מתנות מלפני הכלל
+ *   הזה (בלי תאריך זיכוי) לא פגות.
+ *
+ * lastBirthdayRewardYear מונע זיכוי כפול באותה שנה (גם אחרי שינוי תאריך).
+ * כל עדכון הוא updateMany עם guard ב-where - תפיסה אטומית מול שני polls
+ * בו-זמנית.
  */
 export async function grantBirthdayRewardIfDue(customerId: string): Promise<void> {
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
-    select: { birthday: true, lastBirthdayRewardYear: true },
+    select: {
+      birthday: true,
+      lastBirthdayRewardYear: true,
+      bonusRewardsAvailable: true,
+      birthdayRewardGrantedAt: true,
+    },
   });
-  if (!customer?.birthday) return;
+  if (!customer) return;
 
-  const today = getIsraelDateParts(new Date());
-  const isBirthdayToday =
-    customer.birthday.getUTCMonth() + 1 === today.month && customer.birthday.getUTCDate() === today.day;
+  const now = new Date();
+  const today = israelToday(now);
 
-  if (!isBirthdayToday || customer.lastBirthdayRewardYear === today.year) return;
+  const grantedAt = customer.birthdayRewardGrantedAt;
+  if (grantedAt && customer.bonusRewardsAvailable > 0) {
+    const granted = israelToday(grantedAt);
+    if (granted.year !== today.year || granted.month !== today.month) {
+      await prisma.customer.updateMany({
+        where: { id: customerId, birthdayRewardGrantedAt: grantedAt, bonusRewardsAvailable: { gt: 0 } },
+        data: { bonusRewardsAvailable: { decrement: 1 }, birthdayRewardGrantedAt: null },
+      });
+    }
+  }
+
+  if (!customer.birthday) return;
+
+  const isBirthdayMonth = customer.birthday.getUTCMonth() + 1 === today.month;
+  if (!isBirthdayMonth || customer.lastBirthdayRewardYear === today.year) return;
 
   await prisma.customer.updateMany({
     where: {
       id: customerId,
       OR: [{ lastBirthdayRewardYear: null }, { lastBirthdayRewardYear: { not: today.year } }],
     },
-    data: { bonusRewardsAvailable: { increment: 1 }, lastBirthdayRewardYear: today.year },
+    data: {
+      bonusRewardsAvailable: { increment: 1 },
+      lastBirthdayRewardYear: today.year,
+      birthdayRewardGrantedAt: now,
+    },
   });
 }

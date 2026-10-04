@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { STAMPS_REQUIRED } from "@/lib/config";
+import { LAUNCH_TERMS_VERSION, STAMPS_REQUIRED, TERMS_VERSION } from "@/lib/config";
 import { grantBirthdayRewardIfDue } from "@/lib/birthday-reward";
 import { getAboutUsText, getBusinessDetails } from "@/lib/business-settings";
 import StampCard from "@/components/StampCard";
@@ -14,10 +14,17 @@ export default async function CardPage({
 
   await grantBirthdayRewardIfDue(id);
 
-  const [customer, aboutUsText, businessDetails] = await Promise.all([
+  const [customer, aboutUsText, businessDetails, lastTermsAcceptance] = await Promise.all([
     prisma.customer.findUnique({ where: { id } }),
     getAboutUsText(),
     getBusinessDetails(),
+    // הגרסה האחרונה של התקנון שהלקוח אישר. אישור בלי גרסה (לפני ההרצה) נחשב
+    // כגרסת ההשקה, כך שהפס מופיע רק מהשינוי הבא בתקנון.
+    prisma.consentEvent.findFirst({
+      where: { customerId: id, kind: "TERMS_ACCEPTED" },
+      orderBy: { createdAt: "desc" },
+      select: { termsVersion: true },
+    }),
   ]);
   if (!customer) {
     notFound();
@@ -36,6 +43,7 @@ export default async function CardPage({
       hasBirthdayReward={customer.bonusRewardsAvailable > 0}
       aboutUsText={aboutUsText}
       businessDetails={businessDetails}
+      needsTermsApproval={(lastTermsAcceptance?.termsVersion ?? LAUNCH_TERMS_VERSION) !== TERMS_VERSION}
     />
   );
 }

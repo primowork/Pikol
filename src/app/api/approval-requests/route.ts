@@ -36,8 +36,9 @@ export async function POST(request: NextRequest) {
       throw new ValidationError("אין מספיק ניקובים למימוש הפרס");
     }
 
+    // בקשות כניסה (LOGIN) מטלפון חדש לא נחשבות כאן - הן מתנהלות בנפרד.
     const recent = await prisma.approvalRequest.findFirst({
-      where: { customerId },
+      where: { customerId, kind: { in: ["STAMP", "REDEEM"] } },
       orderBy: { createdAt: "desc" },
     });
 

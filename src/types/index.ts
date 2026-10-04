@@ -57,15 +57,18 @@ export interface ApiErrorBody {
 }
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "EXPIRED" | "DECLINED";
-export type ApprovalRequestKind = "STAMP" | "REDEEM";
+/** LOGIN: כניסה לכרטיס קיים מטלפון חדש, באישור הצוות (נוצרת מ-POST /api/customers). */
+export type ApprovalRequestKind = "STAMP" | "REDEEM" | "LOGIN";
 
-/** מצב בקשת האישור כפי שנצפה מ-"/scan" (polling). */
+/** מצב בקשת האישור כפי שנצפה מ-"/scan" ומ-"/join" (polling). */
 export interface ApprovalRequestState {
   id: string;
   status: ApprovalStatus;
   kind: ApprovalRequestKind;
   quantity: number;
   createdAt: string;
+  /** רק בבקשת LOGIN שאושרה: הכרטיס שהמכשיר המבקש נכנס אליו. */
+  customerId?: string;
 }
 
 /** שורה ברשימת "בקשות ממתינות" בדשבורד הצוות. */

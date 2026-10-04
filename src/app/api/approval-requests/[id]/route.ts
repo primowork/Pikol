@@ -5,7 +5,7 @@ import { handleApiError, NotFoundError } from "@/lib/errors";
 import type { ApprovalStatus } from "@/types";
 
 /**
- * סטטוס בקשת אישור בודדת - ציבורי, ל-polling מ-"/scan". EXPIRED נגזר
+ * סטטוס בקשת אישור בודדת - ציבורי, ל-polling מ-"/scan" ומ-"/join". EXPIRED נגזר
  * לפי גיל הרשומה בכל קריאה, לעולם לא נכתב ל-DB (פחות סיכון race, אין
  * כתיבה בנתיב שנקרא הרבה).
  */
@@ -27,8 +27,12 @@ export async function GET(
     return NextResponse.json({
       id: request.id,
       status,
+      kind: request.kind,
       quantity: request.quantity,
       createdAt: request.createdAt,
+      // רק לבקשת כניסה שאושרה: המכשיר שביקש (רק הוא מכיר את מזהה הבקשה)
+      // מקבל את מזהה הכרטיס ונכנס אליו.
+      ...(request.kind === "LOGIN" && status === "APPROVED" ? { customerId: request.customerId } : {}),
     });
   } catch (err) {
     return handleApiError(err);

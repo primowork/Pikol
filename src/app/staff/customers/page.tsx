@@ -112,6 +112,7 @@ export default async function CustomersPage() {
         ...customer,
         createdAt: customer.createdAt.toISOString(),
       }))}
+      isOwner={staff.role === "OWNER"}
     />
   );
 }

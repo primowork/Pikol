@@ -53,7 +53,7 @@ export async function setVapidSubject(vapidSubject: string): Promise<void> {
 /**
  * פרטי העסק שמוצגים ללקוחות: בית הקפה הוא בעל השליטה במאגר והמפרסם
  * בשידורים, ולכן השם, מספר העוסק ודרכי הקשר שלו מופיעים במדיניות
- * הפרטיות, בתנאי השימוש, בתחתית הכרטיס, והטלפון גם בכל שידור.
+ * הפרטיות, בתקנון המועדון, בתחתית הכרטיס, והטלפון גם בכל שידור.
  * שדה ריק נשמר כ-null.
  */
 export async function getBusinessDetails(): Promise<BusinessDetails> {

@@ -4,7 +4,7 @@ import { APPROVAL_REQUEST_TIMEOUT_SECONDS } from "./config";
 import { PushNotConfiguredError } from "./errors";
 import { getBroadcastSenderLine, getVapidSubject } from "./business-settings";
 import { formatCustomerBroadcast } from "./broadcast-format";
-import type { BroadcastAudience, CustomerBroadcastResult } from "@/types";
+import type { ApprovalRequestKind, BroadcastAudience, CustomerBroadcastResult } from "@/types";
 
 // חתימת VAPID מוגדרת מחדש רק כש-subject בפועל משתנה (לא flag בוליאני קבוע) -
 // כי subject יכול עכשיו להגיע מ-DB ולהשתנות בזמן ריצה דרך /staff/settings,
@@ -42,7 +42,7 @@ async function ensureConfigured() {
 export async function sendApprovalPush(
   approvalRequestId: string,
   customerName: string,
-  kind: "STAMP" | "REDEEM",
+  kind: ApprovalRequestKind,
   quantity: number
 ) {
   await ensureConfigured();
@@ -53,15 +53,18 @@ export async function sendApprovalPush(
   // הכמות מוצגת במפורש בכותרת - כדי ש-staff יראה בדיוק כמה מבוקש ולא
   // יאשר "בעיוורון" בקשה מנופחת. יחיד/רבים בעברית: "ניקוב אחד" / "N ניקובים".
   // עבור מימוש פרס (REDEEM) הכמות לא רלוונטית - כותרת ייעודית במקום.
+  // LOGIN: כניסה לכרטיס מטלפון חדש - הצוות צריך לוודא שזה באמת הלקוח.
   const title =
     kind === "REDEEM"
       ? `בקשת מימוש פרס - ${customerName}`
-      : `בקשת ${quantity === 1 ? "ניקוב אחד" : `${quantity} ניקובים`} - ${customerName}`;
+      : kind === "LOGIN"
+        ? `כניסה לכרטיס מטלפון חדש - ${customerName}`
+        : `בקשת ${quantity === 1 ? "ניקוב אחד" : `${quantity} ניקובים`} - ${customerName}`;
   const payload = JSON.stringify({
     kind: "approval",
     approvalRequestId,
     title,
-    body: "לחצו לאישור או דחייה",
+    body: kind === "LOGIN" ? "אשרו רק אם זה באמת הלקוח שעומד מולכם" : "לחצו לאישור או דחייה",
   });
 
   const results = await Promise.allSettled(

@@ -67,7 +67,7 @@ export default function HomePage() {
 
       <p className="text-xs text-pikol-brown/40">
         <Link href="/terms" className="underline">
-          תנאי שימוש
+          תקנון המועדון
         </Link>
         {" · "}
         <Link href="/privacy" className="underline">

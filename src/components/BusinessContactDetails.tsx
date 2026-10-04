@@ -6,7 +6,7 @@ interface BusinessContactDetailsProps {
   details: BusinessDetails;
 }
 
-/** פרטי בית הקפה ודרכי הפנייה אליו, במדיניות הפרטיות ובתנאי השימוש. */
+/** פרטי בית הקפה ודרכי הפנייה אליו, במדיניות הפרטיות ובתקנון המועדון. */
 export default function BusinessContactDetails({ details }: BusinessContactDetailsProps) {
   const { legalName, businessNumber, address, contactPhone, contactEmail } = details;
   const hasContact = Boolean(address || contactPhone || contactEmail);

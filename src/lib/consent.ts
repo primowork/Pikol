@@ -1,5 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
+import { MARKETING_MIN_AGE } from "./config";
+import { ageOn, israelToday } from "./age";
+import { ValidationError } from "./errors";
 
 /**
  * מאיפה הגיעה ההסכמה או ההסרה - נשמר ביומן (ConsentEvent.source):
@@ -39,6 +42,16 @@ export async function setMarketingConsent(
   }
 
   const { customerId, optIn, source, ip } = change;
+
+  // עדכונים ומבצעים רק מגיל 18 (תקנון, פרק 7). את הגיל יודעים רק אם נמסר
+  // יום הולדת; בלעדיו ההצהרה בתיבת הסימון היא מה שיש.
+  if (optIn) {
+    const current = await tx.customer.findUnique({ where: { id: customerId }, select: { birthday: true } });
+    const birthday = current?.birthday?.toISOString().slice(0, 10);
+    if (birthday && ageOn(birthday, israelToday()) < MARKETING_MIN_AGE) {
+      throw new ValidationError(`עדכונים ומבצעים אפשר לאשר רק מגיל ${MARKETING_MIN_AGE}`);
+    }
+  }
 
   await tx.customer.update({
     where: { id: customerId },

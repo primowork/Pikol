@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import BackLink from "@/components/BackLink";
 import { BUSINESS_NAME, STAMPS_REQUIRED } from "@/lib/config";
@@ -17,6 +18,8 @@ interface CustomersDashboardClientProps {
   peakDayLabel: string | null;
   openRewardLiability: number;
   initialCustomers: CustomerListItem[];
+  /** רק בעל העסק רואה את כפתור מחיקת הכרטיס (גם השרת בודק). */
+  isOwner: boolean;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -35,8 +38,13 @@ export default function CustomersDashboardClient({
   peakDayLabel,
   openRewardLiability,
   initialCustomers,
+  isOwner,
 }: CustomersDashboardClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
   const [results, setResults] = useState<{ query: string; customers: CustomerListItem[]; failed: boolean } | null>(
     null
   );
@@ -48,7 +56,35 @@ export default function CustomersDashboardClient({
   const query = search.trim();
   const searching = query !== "" && results?.query !== query;
   const searchFailed = query !== "" && results?.query === query && results.failed;
-  const customers = query ? (results?.customers ?? []) : initialCustomers;
+  const customers = (query ? (results?.customers ?? []) : initialCustomers).filter(
+    (customer) => !deletedIds.has(customer.id)
+  );
+
+  // ביטול חברות לבקשת לקוח (תקנון, פרק 9). אישור מפורש, כי אין דרך לשחזר.
+  async function handleDelete(customer: CustomerListItem) {
+    const confirmed = window.confirm(
+      `למחוק את הכרטיס של ${customer.name}? הניקובים והפרסים יימחקו ואי אפשר לשחזר. נשאר רק תיעוד ההסכמות שלו.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(customer.id);
+    setDeleteNotice(null);
+    try {
+      const res = await staffFetch(`/api/customers/${customer.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteNotice(data.error ?? "המחיקה נכשלה, נסו שוב");
+        return;
+      }
+      setDeletedIds((prev) => new Set(prev).add(customer.id));
+      setDeleteNotice(`הכרטיס של ${customer.name} נמחק`);
+      router.refresh();
+    } catch {
+      setDeleteNotice("בעיית תקשורת - נסו שוב");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   useEffect(() => {
     if (!query) return;
@@ -150,6 +186,8 @@ export default function CustomersDashboardClient({
           <p className="text-center text-sm text-pikol-brown/60">לא נמצאו לקוחות</p>
         )}
 
+        {deleteNotice && <p className="text-center text-sm text-pikol-brown">{deleteNotice}</p>}
+
         {customers.map((customer) => (
           <div
             key={customer.id}
@@ -167,6 +205,18 @@ export default function CustomersDashboardClient({
               </span>
               <span>הצטרפ/ה ב-{formatDate(customer.createdAt)}</span>
             </div>
+            {isOwner && (
+              <div className="mt-2 text-left">
+                <button
+                  type="button"
+                  disabled={deletingId === customer.id}
+                  onClick={() => handleDelete(customer)}
+                  className="text-xs text-red-700 underline disabled:opacity-60"
+                >
+                  {deletingId === customer.id ? "מוחק…" : "מחיקת הכרטיס לבקשת הלקוח"}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
