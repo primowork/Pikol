@@ -9,12 +9,7 @@
 //
 // כל שינוי בתוכן מחייב גרסה חדשה ב-TERMS_VERSION (src/lib/config.ts).
 
-import {
-  BUSINESS_NAME,
-  COFFEE_ONLY_FROM,
-  MARKETING_MIN_AGE,
-  STAMPS_REQUIRED,
-} from "./config";
+import { BUSINESS_NAME, MARKETING_MIN_AGE, STAMPS_REQUIRED } from "./config";
 
 export const CLUB_TERMS_TITLE = "תקנון מועדון הלקוחות";
 
@@ -25,25 +20,11 @@ export interface ClubTermsSection {
   showContactDetails?: boolean;
 }
 
-/** "20 בינואר 2027" מתאריך ISO (YYYY-MM-DD). */
-export function formatHebrewDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  // צהריים UTC: אותו יום קלנדרי גם בשעון ישראל
-  return new Intl.DateTimeFormat("he-IL", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Asia/Jerusalem",
-  }).format(new Date(Date.UTC(year, month - 1, day, 12)));
-}
-
 /**
  * הסעיפים, ממוספרים לפי הסדר (פרק 1, סעיף 1.1 וכו'). businessName הוא
  * השם הרשום מההגדרות (למשל ירין אשר, או שם החברה) - מי שמפעיל את המועדון.
  */
 export function getClubTerms(businessName: string): ClubTermsSection[] {
-  const coffeeOnlyFrom = formatHebrewDate(COFFEE_ONLY_FROM);
-
   return [
     {
       title: "כללי",
@@ -84,7 +65,6 @@ export function getClubTerms(businessName: string): ClubTermsSection[] {
         "אם קנייה בוטלה או שהכסף עליה הוחזר, הניקוב שניתן עליה מתבטל.",
         "לניקובים אין תאריך תפוגה. הם נשארים בכרטיס כל עוד הכרטיס קיים והמועדון פועל.",
         "הרישומים במערכת של בית הקפה ישמשו ראיה לכאורה למספר הניקובים ולמימושים. אם נראה לכם שניקוב חסר, פנו לצוות והעניין ייבדק.",
-        `הוראת מעבר: עד ${coffeeOnlyFrom} כל משקה שנקנה בבית הקפה מזכה בניקוב, וגם הכוס החינמית יכולה להיות כל משקה, כמו בנוסח הקודם של התנאים. מהתאריך הזה חלים הכללים שבפרק הזה ובפרק 5.`,
       ],
     },
     {
@@ -163,15 +143,10 @@ export function getClubTerms(businessName: string): ClubTermsSection[] {
 
 /**
  * מה השתנה בגרסה הנוכחית לעומת הקודמת - מוצג בפס העדכון בכרטיס ללקוחות
- * שאישרו גרסה קודמת. זו גם ההודעה שחוק הגנת הצרכן דורש לפני צמצום הטבה,
- * ולכן תאריך המעבר כתוב בה במפורש. להחליף בכל גרסה חדשה.
+ * שאישרו גרסה קודמת. זו גם ההודעה שחוק הגנת הצרכן דורש לפני צמצום הטבה
+ * (שלושה עד ארבעה חודשים מראש, עם תאריך התחולה). ריק בגרסת ההשקה: אין עדיין
+ * לקוחות שאישרו גרסה קודמת. למלא בכל גרסה חדשה.
  */
 export function getTermsUpdateNotes(): string[] {
-  const coffeeOnlyFrom = formatHebrewDate(COFFEE_ONLY_FROM);
-  return [
-    `מ-${coffeeOnlyFrom} רק כוס קפה מזכה בניקוב, והכוס החינמית היא כוס קפה. עד אז כל משקה, כמו היום.`,
-    "את מתנת יום ההולדת אפשר לממש בכל יום בחודש יום ההולדת.",
-    "כניסה לכרטיס מטלפון חדש מתבצעת באישור הצוות בדוכן.",
-    `עדכונים ומבצעים אפשר לאשר רק מגיל ${MARKETING_MIN_AGE}.`,
-  ];
+  return [];
 }

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 interface QrScannerProps {
   onScan: (decodedText: string) => void;
   active: boolean;
   onClose?: () => void;
   unavailableMessage?: string;
+  /** מוצג רק כשאין גישה למצלמה, מתחת להודעה - דרך אחרת להמשיך. */
+  fallback?: ReactNode;
 }
 
 const ELEMENT_ID = "pikol-qr-reader";
@@ -20,7 +22,7 @@ const ELEMENT_ID = "pikol-qr-reader";
  * הערה: הסריקה דורשת הקשר מאובטח (HTTPS או localhost) - זו מגבלת
  * הדפדפן, לא באג כאן.
  */
-export default function QrScanner({ onScan, active, onClose, unavailableMessage }: QrScannerProps) {
+export default function QrScanner({ onScan, active, onClose, unavailableMessage, fallback }: QrScannerProps) {
   const scannerRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +91,7 @@ export default function QrScanner({ onScan, active, onClose, unavailableMessage 
       >
         <div id={ELEMENT_ID} className="mx-auto overflow-hidden rounded-2xl" />
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+        {error && fallback && <div className="mt-3">{fallback}</div>}
         {onClose && (
           <button
             type="button"

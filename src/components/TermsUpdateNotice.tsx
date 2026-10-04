@@ -17,6 +17,7 @@ interface TermsUpdateNoticeProps {
  */
 export default function TermsUpdateNotice({ customerId }: TermsUpdateNoticeProps) {
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
+  const notes = getTermsUpdateNotes();
 
   async function approve() {
     setStatus("saving");
@@ -35,11 +36,13 @@ export default function TermsUpdateNotice({ customerId }: TermsUpdateNoticeProps
   return (
     <div className="w-full rounded-2xl border border-pikol-gold/60 bg-pikol-gold/10 p-4 text-right text-sm text-pikol-brown">
       <p className="font-semibold">עדכנו את תקנון המועדון ({TERMS_VERSION_LABEL})</p>
-      <ul className="mt-2 list-disc space-y-1 pr-5">
-        {getTermsUpdateNotes().map((note) => (
-          <li key={note}>{note}</li>
-        ))}
-      </ul>
+      {notes.length > 0 && (
+        <ul className="mt-2 list-disc space-y-1 pr-5">
+          {notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           type="button"

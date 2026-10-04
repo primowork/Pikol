@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "./Logo";
 import CupIcon from "./CupIcon";
@@ -162,6 +161,15 @@ export default function StampCard({
     setScanError("זה לא נראה כמו קוד הדוכן של קפה פיקולו. אפשר לנסות שוב.");
   }
 
+  // כשהמצלמה לא נפתחת (אין הרשאה, טלפון ישן) - עדיין אפשר לבקש ניקוב. הבקשה
+  // ממילא מחכה לאישור הצוות, כך שהסריקה היא נוחות ולא ההגנה. מוצג רק בתוך
+  // חלון הסורק אחרי כישלון, לא כקישור קבוע בכרטיס.
+  function requestWithoutCamera() {
+    scannerHistory.closeForNavigation();
+    setScannerActive(false);
+    router.replace("/scan");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-6 px-4 py-8 text-center">
       <BirthdayGift
@@ -240,14 +248,19 @@ export default function StampCard({
             active={scannerActive}
             onScan={handleScan}
             onClose={() => setScannerActive(false)}
-            unavailableMessage="לא הצלחנו לגשת למצלמה. אפשר ללחוץ למטה במקום."
+            unavailableMessage="לא הצלחנו לגשת למצלמה."
+            fallback={
+              <button
+                type="button"
+                onClick={requestWithoutCamera}
+                className="w-full rounded-full bg-pikol-brown px-6 py-3 font-semibold text-pikol-cream"
+              >
+                בקשת ניקוב בלי מצלמה
+              </button>
+            }
           />
 
           {scanError && <p className="text-sm text-red-700">{scanError}</p>}
-
-          <Link href="/scan" className="text-xs text-pikol-teal underline">
-            או לבקשת ניקוב בלי מצלמה
-          </Link>
         </div>
       )}
 
