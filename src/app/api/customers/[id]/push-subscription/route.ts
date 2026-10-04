@@ -57,8 +57,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       throw new ValidationError("בקשה לא תקינה");
     }
     const { endpoint, keys } = parsed.data.subscription;
+    const { replacesEndpoint } = parsed.data;
 
     const subscription = await prisma.$transaction(async (tx) => {
+      // המכשיר נרשם מחדש אחרי שמפתח ה-VAPID התחלף: ההרשמה הישנה שלו לא תעבוד
+      // יותר. מוחקים רק אם היא של אותו לקוח, כדי שאי אפשר יהיה למחוק לאחרים.
+      if (replacesEndpoint && replacesEndpoint !== endpoint) {
+        await tx.customerPushSubscription.deleteMany({ where: { endpoint: replacesEndpoint, customerId: id } });
+      }
       const saved = await tx.customerPushSubscription.upsert({
         where: { endpoint },
         create: { customerId: id, endpoint, p256dh: keys.p256dh, auth: keys.auth },

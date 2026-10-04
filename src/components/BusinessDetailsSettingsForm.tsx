@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { staffFetch } from "@/lib/staff-fetch";
 import type { BusinessDetails } from "@/types";
 
@@ -36,6 +37,7 @@ function toFormValues(details: BusinessDetails): Record<FieldName, string> {
  * יידעו מי הוא ואיך פונים אליו.
  */
 export default function BusinessDetailsSettingsForm({ initialDetails }: BusinessDetailsSettingsFormProps) {
+  const router = useRouter();
   const [values, setValues] = useState(() => toFormValues(initialDetails));
   const [state, setState] = useState<SaveState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -61,6 +63,9 @@ export default function BusinessDetailsSettingsForm({ initialDetails }: Business
 
       setValues(toFormValues(data as BusinessDetails));
       setState("saved");
+      // מנקה את מטמון הניווט: "חזרה לדשבורד" שחזרה את המסך הקודם הציגה עדיין
+      // את התזכורת "חסרים פרטי העסק" גם אחרי שמילאו אותם
+      router.refresh();
     } catch {
       setErrorMessage("בעיית תקשורת - נסו שוב");
       setState("error");

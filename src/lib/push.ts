@@ -4,35 +4,46 @@ import { APPROVAL_REQUEST_TIMEOUT_SECONDS } from "./config";
 import { PushNotConfiguredError } from "./errors";
 import { getBroadcastSenderLine, getVapidSubject } from "./business-settings";
 import { formatCustomerBroadcast } from "./broadcast-format";
+import { getVapidKeys, normalizeVapidSubject } from "./vapid";
 import type { ApprovalRequestKind, BroadcastAudience, CustomerBroadcastResult } from "@/types";
 
-// חתימת VAPID מוגדרת מחדש רק כש-subject בפועל משתנה (לא flag בוליאני קבוע) -
-// כי subject יכול עכשיו להגיע מ-DB ולהשתנות בזמן ריצה דרך /staff/settings,
-// בלי restart לשרת. המפתחות עצמם (public/private) נשארים אך ורק משתני
-// סביבה בכוונה: אלה זהות קריפטוגרפית שכל ה-subscriptions הקיימים תלויים
-// בה - שינוי שלהם דרך UI היה שובר בשקט את כל ההרשמות הקיימות. לא ב-
-// src/proxy.ts - זה רץ ב-Edge runtime (לכן jose נבחר שם), ו-web-push
-// תלוי ב-Node crypto. route handlers רצים על Node כרגיל.
-let configuredSubject: string | null = null;
+// חתימת VAPID מוגדרת מחדש רק כשכתובת הקשר או המפתח משתנים בפועל - כתובת
+// הקשר יכולה להגיע מ-DB ולהשתנות בזמן ריצה דרך /staff/settings, בלי restart.
+// המפתח עצמו נשאר משתנה סביבה בכוונה (ראו src/lib/vapid.ts). לא ב-src/proxy.ts:
+// web-push תלוי ב-Node crypto, ו-route handlers רצים על Node כרגיל.
+let configuredFor: string | null = null;
+
 async function ensureConfigured() {
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = await getVapidSubject();
-  if (!publicKey || !privateKey || !subject) {
-    throw new PushNotConfiguredError();
+  const keys = getVapidKeys();
+  if (!keys.ok) {
+    throw new PushNotConfiguredError(
+      keys.reason === "invalid"
+        ? "VAPID_PRIVATE_KEY לא תקין. צריך את המפתח הפרטי שיוצא מ-npx web-push generate-vapid-keys."
+        : undefined
+    );
   }
-  if (configuredSubject === subject) return;
-  // setVapidDetails מוודא גם פורמט (אורך המפתח אחרי פענוח base64url,
-  // subject שהוא URL תקין וכו'), לא רק שהערכים קיימים - ערך נוכח אבל
-  // פגום זורק כאן כל קריאה, לנצח, כי configuredSubject אף פעם לא מתעדכן.
-  // לוכדים כדי שההודעה הספציפית (למשל "אורך מפתח שגוי") תגיע ל-staff
-  // במקום "משהו השתבש" גנרי.
+
+  const rawSubject = await getVapidSubject();
+  if (!rawSubject) {
+    throw new PushNotConfiguredError("חסרה כתובת קשר להתראות. ממלאים אותה בעמוד ההגדרות.");
+  }
+  // אפל דוחה כתובת לא תקינה עם BadJwtToken על כל הודעה, אז עוצרים כאן
+  // (כבר בתצוגה המקדימה) עם הסבר, במקום שהשליחה תיכשל אצל כל הלקוחות.
+  const subject = normalizeVapidSubject(rawSubject);
+  if (!subject) {
+    throw new PushNotConfiguredError(
+      `כתובת הקשר להתראות ("${rawSubject}") לא בפורמט שאפל מקבל. מתקנים בעמוד ההגדרות, למשל mailto:info@example.com`
+    );
+  }
+
+  const configKey = `${subject}|${keys.privateKey}`;
+  if (configuredFor === configKey) return;
   try {
-    webpush.setVapidDetails(subject, publicKey, privateKey);
+    webpush.setVapidDetails(subject, keys.publicKey, keys.privateKey);
   } catch (err) {
     throw new PushNotConfiguredError(err instanceof Error ? err.message : undefined);
   }
-  configuredSubject = subject;
+  configuredFor = configKey;
 }
 
 /**
@@ -154,10 +165,10 @@ interface CustomerBroadcastInput {
  * כך שגם שליחה שנקטעה באמצע משאירה תיעוד של מי שלח ומה.
  *
  * מחזירה פירוט ולא רק מספר: "נשלח ל-0" יכול לנבוע מזה שאין מנויים בכלל,
- * מדחייה של שירות ה-push (למשל 403 כשמפתחות VAPID הוחלפו אחרי שהלקוחות
- * נרשמו), או ממנויים שפגו - ובלי הפירוט אי אפשר להבדיל ביניהם מהדשבורד.
- * דחייה (לא 404/410) לא נמחקת בכוונה: מפתח פרטי שהוגדר לא נכון היה
- * מוחק ככה את ההרשמות של כל הלקוחות בבת אחת.
+ * מדחייה של שירות ה-push (למשל מכשיר שנרשם עם מפתח VAPID אחר), או ממנויים
+ * שפגו - ובלי הפירוט אי אפשר להבדיל ביניהם מהדשבורד. דחייה (לא 404/410)
+ * לא נמחקת בכוונה: מפתח פרטי שהוגדר לא נכון היה מוחק ככה את ההרשמות של כל
+ * הלקוחות בבת אחת. הרשמה ישנה מוחלפת כשהמכשיר נרשם מחדש (replacesEndpoint).
  */
 export async function sendCustomerBroadcast(input: CustomerBroadcastInput): Promise<CustomerBroadcastResult> {
   await ensureConfigured();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/Logo";
@@ -16,14 +16,24 @@ import type { ActiveCustomer, CustomerSearchResult } from "@/types";
 interface DashboardClientProps {
   staffName: string;
   vapidPublicKey: string;
-  /** חסרים בהגדרות השם הרשום או מספר העוסק (מוצגים בתקנון ובמדיניות הפרטיות). */
-  missingBusinessDetails: boolean;
+  /** שדות פרטי העסק שחסרים בהגדרות (מוצגים בתקנון ובמדיניות הפרטיות). */
+  missingBusinessDetails: string[];
 }
 
 export default function DashboardClient({ staffName, vapidPublicKey, missingBusinessDetails }: DashboardClientProps) {
   const router = useRouter();
   const [activeCustomer, setActiveCustomer] = useState<ActiveCustomer | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // חזרה לדשבורד מזיכרון הדפדפן (bfcache, למשל מחווה אחורה באייפון) מציגה את
+  // המסך כמו שהיה - מרעננים כדי שתזכורות ונתונים מהשרת יתעדכנו
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) router.refresh();
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [router]);
 
   function handleFound(customer: CustomerSearchResult) {
     setActiveCustomer(customer);
@@ -74,12 +84,14 @@ export default function DashboardClient({ staffName, vapidPublicKey, missingBusi
         </Link>
       </div>
 
-      {missingBusinessDetails && (
+      {missingBusinessDetails.length > 0 && (
         <Link
           href="/staff/settings"
           className="w-full rounded-2xl border border-pikol-gold/60 bg-pikol-gold/10 p-3 text-center text-sm text-pikol-brown"
         >
-          חסרים פרטי העסק: השם הרשום ומספר העוסק מופיעים בתקנון המועדון ובמדיניות הפרטיות.{" "}
+          חסר בהגדרות: {missingBusinessDetails.join(" ו")}.{" "}
+          {missingBusinessDetails.length === 1 ? "הוא מופיע" : "הם מופיעים"} בתקנון המועדון ובמדיניות
+          הפרטיות.{" "}
           <span className="font-semibold text-pikol-teal underline">למילוי בהגדרות</span>
         </Link>
       )}
