@@ -16,6 +16,7 @@ function quantityLabel(quantity: number): string {
 }
 
 function requestLabel(request: PendingApprovalRequest): string {
+  if (request.kind === "LOGIN") return "רוצה להיכנס לכרטיס מטלפון חדש";
   return request.kind === "REDEEM" ? "מבקש/ת לממש את הפרס" : `מבקש/ת ${quantityLabel(request.quantity)}`;
 }
 
@@ -84,7 +85,13 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
       const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
+        const handled = requests.find((request) => request.id === id);
         setRequests((prev) => prev.filter((request) => request.id !== id));
+        if (handled?.kind === "LOGIN") {
+          // כניסה מטלפון חדש לא משנה את הכרטיס - אין מה לפתוח בדשבורד
+          if (action === "approve") setNotice(`הכניסה של ${handled.customer.name} אושרה`);
+          return;
+        }
         if (action === "approve" && data.customer) {
           onApproved(data.customer);
         }
@@ -123,6 +130,11 @@ export default function PendingApprovalsList({ onApproved }: PendingApprovalsLis
 
         <p className="text-4xl font-bold text-pikol-cream">{nextRequest.customer.name}</p>
         <p className="text-xl text-pikol-cream/90">{requestLabel(nextRequest)}</p>
+        {nextRequest.kind === "LOGIN" && (
+          <p className="max-w-sm text-base text-pikol-cream/80">
+            אשרו רק אם זה באמת הלקוח שעומד מולכם. אם לא בטוחים, שאלו לשמו.
+          </p>
+        )}
         {notice && (
           <p className="rounded-xl bg-pikol-cream/15 px-4 py-2 text-base text-pikol-cream">{notice}</p>
         )}

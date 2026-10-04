@@ -28,6 +28,13 @@ export class UnauthorizedError extends ApiError {
   }
 }
 
+/** מחובר כצוות, אבל הפעולה שמורה לבעל העסק (למשל מחיקת כרטיס). */
+export class ForbiddenError extends ApiError {
+  constructor(message = "הפעולה הזו שמורה לבעל העסק") {
+    super(403, message);
+  }
+}
+
 export class NotFoundError extends ApiError {
   constructor(message = "לא נמצא") {
     super(404, message);

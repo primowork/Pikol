@@ -4,16 +4,25 @@ import { joinSchema } from "@/lib/validation";
 import { normalizePhone } from "@/lib/phone";
 import { requireStaff } from "@/lib/auth";
 import { getConsentIp } from "@/lib/consent";
+import { requestLoginApproval } from "@/lib/login-approval";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { JOIN_RATE_LIMIT, TERMS_VERSION } from "@/lib/config";
 import { handleApiError, ValidationError } from "@/lib/errors";
 
 /**
  * כניסה/הצטרפות - ציבורי, נקרא מ-"/join". טופס חכם אחד: השלב הראשון
- * שולח רק טלפון. אם הוא כבר רשום - מחזיר את הכרטיס הקיים ישירות (אין
- * צורך בשם, ולקוח חוזר ממכשיר חדש "נכנס" בלי שום מסך login נפרד). אם
- * לא רשום ולא נשלח שם - מחזיר needsName כדי שה-UI יבקש שם ויקרא שוב.
+ * שולח רק טלפון. אם הוא כבר רשום, הכרטיס לא מוחזר מיד: נוצרת בקשת כניסה
+ * (LOGIN) שהצוות מאשר בדוכן, ו-"/join" ממתין לה (src/lib/login-approval.ts).
+ * כך מי שרק יודע מספר טלפון של לקוח לא רואה את הכרטיס, השם או יום ההולדת
+ * שלו. אם לא רשום ולא נשלח שם - מחזיר needsName כדי שה-UI יבקש שם ויקרא שוב.
+ *
+ * הגבלת קצב לפי IP (JOIN_RATE_LIMIT) עוצרת סריקה של מספרים, ונדיבה מספיק
+ * ללקוחות שחולקים את ה-Wi-Fi של בית הקפה.
  */
 export async function POST(request: NextRequest) {
   try {
+    checkRateLimit(`join:${getClientIp(request)}`, JOIN_RATE_LIMIT);
+
     const body = await request.json().catch(() => null);
     const parsed = joinSchema.safeParse(body);
     if (!parsed.success) {
@@ -25,21 +34,15 @@ export async function POST(request: NextRequest) {
       throw new ValidationError("מספר הטלפון לא תקין");
     }
 
-    // אם הטלפון כבר רשום, מפנים לכרטיס הקיים במקום ליצור כפילות - ובכוונה
-    // לא מעדכנים את השם הקיים, כדי שהרשמה חוזרת לא "תגנוב" כרטיס של מישהו
-    // אחר רק כי הטלפון שלו ידוע.
-    const existing = await prisma.customer.findUnique({ where: { phone } });
+    // טלפון רשום: לא יוצרים כפילות ולא נוגעים בשם הקיים, וגם לא מחזירים
+    // כלום מהכרטיס - רק מזהה של בקשת כניסה שהצוות צריך לאשר.
+    const existing = await prisma.customer.findUnique({
+      where: { phone },
+      select: { id: true, name: true },
+    });
     if (existing) {
-      return NextResponse.json(
-        {
-          id: existing.id,
-          name: existing.name,
-          phone: existing.phone,
-          currentStamps: existing.currentStamps,
-          existing: true,
-        },
-        { status: 200 }
-      );
+      const approvalRequestId = await requestLoginApproval(existing);
+      return NextResponse.json({ existing: true, needsApproval: true, approvalRequestId }, { status: 200 });
     }
 
     const { name } = parsed.data;
@@ -68,7 +71,13 @@ export async function POST(request: NextRequest) {
       });
       await tx.consentEvent.createMany({
         data: [
-          { customerId: created.id, kind: "TERMS_ACCEPTED", source: "join", ip: consentIp },
+          {
+            customerId: created.id,
+            kind: "TERMS_ACCEPTED",
+            source: "join",
+            ip: consentIp,
+            termsVersion: TERMS_VERSION,
+          },
           ...(marketingOptIn
             ? [{ customerId: created.id, kind: "MARKETING_OPT_IN" as const, source: "join", ip: consentIp }]
             : []),

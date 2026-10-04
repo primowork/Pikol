@@ -75,7 +75,7 @@ export default function BusinessDetailsSettingsForm({ initialDetails }: Business
       <div>
         <p className="text-sm font-medium text-pikol-brown">פרטי העסק</p>
         <p className="mt-1 text-xs text-pikol-brown/60">
-          מוצגים ללקוחות בתחתית הכרטיס, במדיניות הפרטיות ובתנאי השימוש, והטלפון גם בסוף כל
+          מוצגים ללקוחות בתחתית הכרטיס, במדיניות הפרטיות ובתקנון המועדון, והטלפון גם בסוף כל
           הודעת שידור. החוק מחייב שהלקוחות יידעו מי אחראי על המידע שלהם ועל ההודעות שהם מקבלים.
         </p>
       </div>

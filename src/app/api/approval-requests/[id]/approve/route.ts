@@ -6,7 +6,8 @@ import { addStampForCustomer, redeemForCustomer } from "@/lib/stamp-actions";
 import { handleApiError, ValidationError, NotFoundError, ApprovalConflictError } from "@/lib/errors";
 
 /**
- * staff מאשר בקשה - זו הפעולה שבפועל מוסיפה את הניקוב. נקראת גם מלחיצת
+ * staff מאשר בקשה - זו הפעולה שבפועל מוסיפה את הניקוב (או מממשת פרס, או
+ * מאשרת כניסה לכרטיס מטלפון חדש ב-LOGIN). נקראת גם מלחיצת
  * "אישור" ישירות בהתראת ה-Web Push (מה-service worker, credentials:'include')
  * וגם מ-PendingApprovalsList בדשבורד. staffId נגזר אך ורק מ-requireStaff().
  */
@@ -34,9 +35,23 @@ export async function POST(
 
       if (claimed.count === 0) {
         if (approvalRequest.status === "PENDING") {
-          throw new ValidationError("הבקשה פגה תוקף, בקשו מהלקוח לסרוק שוב");
+          throw new ValidationError(
+            approvalRequest.kind === "LOGIN"
+              ? "הבקשה פגה תוקף, בקשו מהלקוח להזין שוב את המספר"
+              : "הבקשה פגה תוקף, בקשו מהלקוח לסרוק שוב"
+          );
         }
         throw new ApprovalConflictError();
+      }
+
+      if (approvalRequest.kind === "LOGIN") {
+        // כניסה מטלפון חדש: האישור עצמו (status APPROVED) הוא כל הפעולה -
+        // "/join" רואה אותו ב-polling ומקבל את מזהה הכרטיס. אין ניקוב.
+        const customer = await tx.customer.findUnique({ where: { id: approvalRequest.customerId } });
+        if (!customer) {
+          throw new NotFoundError("לקוח לא נמצא");
+        }
+        return { customer };
       }
 
       return approvalRequest.kind === "REDEEM"

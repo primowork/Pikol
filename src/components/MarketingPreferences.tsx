@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import NotificationSubscribe from "./NotificationSubscribe";
-import { BUSINESS_NAME } from "@/lib/config";
+import { BUSINESS_NAME, MARKETING_MIN_AGE } from "@/lib/config";
 
 interface MarketingPreferencesProps {
   customerId: string;
@@ -60,7 +60,7 @@ export default function MarketingPreferences({
         buttonLabel="הפעלת התראות על מבצעים ועדכונים"
         subscribedLabel="התראות פעילות במכשיר הזה"
         unsupportedLabel="התראות לא נתמכות בדפדפן הזה. באייפון צריך קודם להוסיף את הכרטיס למסך הבית ולפתוח אותו משם."
-        consentNote={`בלחיצה אני מאשר/ת לקבל מ${BUSINESS_NAME} עדכונים, הטבות ומבצעים בהתראות לטלפון. אפשר להפסיק בכל עת כאן בכרטיס.`}
+        consentNote={`בלחיצה אני מצהיר/ה שאני מעל גיל ${MARKETING_MIN_AGE} ומאשר/ת לקבל מ${BUSINESS_NAME} עדכונים, הטבות ומבצעים בהתראות לטלפון. אפשר להפסיק בכל עת כאן בכרטיס.`}
         onSubscribed={() => {
           onOptedInChange(true);
           setStatus("idle");

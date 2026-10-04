@@ -43,7 +43,7 @@ export default function BusinessFooter({ details }: BusinessFooterProps) {
       )}
       <p>
         <Link href="/terms" className="underline">
-          תנאי שימוש
+          תקנון המועדון
         </Link>
         {" · "}
         <Link href="/privacy" className="underline">

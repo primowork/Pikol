@@ -71,7 +71,12 @@ export async function redeemForCustomer(
   const updatedCustomer = await tx.customer.update({
     where: { id: customerId },
     data: hasBonusReward
-      ? { bonusRewardsAvailable: { decrement: 1 }, rewardsEarned: { increment: 1 } }
+      ? {
+          bonusRewardsAvailable: { decrement: 1 },
+          rewardsEarned: { increment: 1 },
+          // המתנה מומשה - אין יותר מה להפקיע בסוף החודש (src/lib/birthday-reward.ts)
+          birthdayRewardGrantedAt: null,
+        }
       : { currentStamps: { decrement: STAMPS_REQUIRED }, rewardsEarned: { increment: 1 } },
   });
   const event = await tx.stampEvent.create({

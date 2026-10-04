@@ -241,7 +241,7 @@ export default function ScanPage() {
 
       {customerState?.rewardsAvailable && screen === "selecting" && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-pikol-gold bg-pikol-gold/15 p-6">
-          <p className="text-lg font-semibold text-pikol-brown">מגיע לכם משקה חינם! 🎉</p>
+          <p className="text-lg font-semibold text-pikol-brown">מגיע לכם קפה חינם! 🎉</p>
           <p className="text-sm text-pikol-brown/70">הבריסטה צריך לאשר את המימוש - לוחצים ומחכים רגע.</p>
           <button
             type="button"

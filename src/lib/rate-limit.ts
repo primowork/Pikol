@@ -10,16 +10,22 @@ import { RateLimitedError } from "./errors";
 interface Bucket {
   count: number;
   windowStart: number;
+  windowMs: number;
 }
 
-const WINDOW_MS = 5 * 60 * 1000; // חלון של 5 דקות
-const MAX_ATTEMPTS = 5;
+export interface RateLimit {
+  maxAttempts: number;
+  windowMs: number;
+}
+
+/** ברירת המחדל: כניסת צוות, שחזור והחלפת סיסמה - חמישה ניסיונות בחמש דקות. */
+const LOGIN_RATE_LIMIT: RateLimit = { maxAttempts: 5, windowMs: 5 * 60 * 1000 };
 
 const buckets = new Map<string, Bucket>();
 
 function cleanupExpired(now: number) {
   for (const [key, bucket] of buckets) {
-    if (now - bucket.windowStart > WINDOW_MS) {
+    if (now - bucket.windowStart > bucket.windowMs) {
       buckets.delete(key);
     }
   }
@@ -33,10 +39,9 @@ export function getClientIp(request: Request): string {
 
 /**
  * זורק RateLimitedError אם המפתח הזה חרג ממכסת הניסיונות בחלון הנוכחי.
- * משמש גם לשחזור והחלפת סיסמה, עם קידומת במפתח (למשל "forgot:<ip>")
- * כדי שכל פעולה תספור בנפרד.
+ * כל פעולה סופרת בנפרד לפי קידומת במפתח (למשל "forgot:<ip>").
  */
-export function checkLoginRateLimit(key: string): void {
+export function checkRateLimit(key: string, limit: RateLimit): void {
   const now = Date.now();
 
   // ניקוי הזדמנותי כדי שה-Map לא יגדל ללא הגבלה עם הזמן.
@@ -44,17 +49,22 @@ export function checkLoginRateLimit(key: string): void {
 
   const bucket = buckets.get(key);
 
-  if (!bucket || now - bucket.windowStart > WINDOW_MS) {
-    buckets.set(key, { count: 1, windowStart: now });
+  if (!bucket || now - bucket.windowStart > bucket.windowMs) {
+    buckets.set(key, { count: 1, windowStart: now, windowMs: limit.windowMs });
     return;
   }
 
   bucket.count += 1;
-  if (bucket.count > MAX_ATTEMPTS) {
+  if (bucket.count > limit.maxAttempts) {
     const retryAfterSeconds = Math.max(
       1,
-      Math.ceil((bucket.windowStart + WINDOW_MS - now) / 1000)
+      Math.ceil((bucket.windowStart + bucket.windowMs - now) / 1000)
     );
     throw new RateLimitedError(retryAfterSeconds);
   }
+}
+
+/** המכסה של כניסת צוות - משמשת גם לשחזור והחלפת סיסמה ולהסרה מדיוור. */
+export function checkLoginRateLimit(key: string): void {
+  checkRateLimit(key, LOGIN_RATE_LIMIT);
 }

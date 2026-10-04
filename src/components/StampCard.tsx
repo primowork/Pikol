@@ -12,6 +12,7 @@ import InstallPrompt from "./InstallPrompt";
 import BirthdayGift from "./BirthdayGift";
 import AboutUs from "./AboutUs";
 import BusinessFooter from "./BusinessFooter";
+import TermsUpdateNotice from "./TermsUpdateNotice";
 import { BUSINESS_NAME, BUSINESS_TAGLINE } from "@/lib/config";
 import { getTimeBasedGreeting } from "@/lib/greeting";
 import { useBackToClose } from "@/lib/use-back-to-close";
@@ -29,6 +30,8 @@ interface StampCardProps {
   hasBirthdayReward: boolean;
   aboutUsText: string;
   businessDetails: BusinessDetails;
+  /** הלקוח אישר גרסה קודמת של תקנון המועדון - מציגים את פס העדכון. */
+  needsTermsApproval: boolean;
 }
 
 const POLL_INTERVAL_MS = 6000;
@@ -45,6 +48,7 @@ export default function StampCard({
   hasBirthdayReward,
   aboutUsText,
   businessDetails,
+  needsTermsApproval,
 }: StampCardProps) {
   const router = useRouter();
   // משותף לפופ-אפ יום ההולדת (תיבת הסכמה רק למי שעוד לא אישר) ולאזור
@@ -180,6 +184,8 @@ export default function StampCard({
         {greeting ?? "שלום"} <span className="font-semibold">{initialName}</span>, הנה הכרטיס שלך
       </p>
 
+      {needsTermsApproval && <TermsUpdateNotice customerId={customerId} />}
+
       <div
         className={`w-full rounded-3xl border-2 p-6 shadow-sm transition-colors ${
           rewardsAvailable
@@ -205,7 +211,7 @@ export default function StampCard({
 
         {rewardsAvailable && (
           <p className="mt-3 rounded-xl bg-pikol-gold/30 px-3 py-2 font-semibold text-pikol-brown">
-            מגיע לך משקה חינם! תראו את הכרטיס לבעל הקפה במעמד הקנייה 🎉
+            מגיע לך קפה חינם! תראו את הכרטיס לבעל הקפה במעמד הקנייה 🎉
           </p>
         )}
       </div>
@@ -251,7 +257,7 @@ export default function StampCard({
 
       {rewardsEarned > 0 && (
         <p className="text-xs text-pikol-brown/50">
-          סה&quot;כ מימשתם {rewardsEarned} משקאות חינם עד היום
+          סה&quot;כ מימשתם {rewardsEarned} כוסות קפה חינם עד היום
         </p>
       )}
 

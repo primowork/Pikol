@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { BUSINESS_NAME } from "@/lib/config";
+import { BUSINESS_NAME, MARKETING_MIN_AGE } from "@/lib/config";
+import { ageOn } from "@/lib/age";
 import { useBackToClose } from "@/lib/use-back-to-close";
 
 interface BirthdayGiftProps {
@@ -24,13 +25,20 @@ function daysUntilNextBirthday(birthdayStr: string, today: Date): number {
   return Math.round((next.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/** היום לפי שעון הדפדפן, לבדיקת גיל בתיבת הדיוור (השרת בודק שוב לפי שעון ישראל). */
+function localToday(): { year: number; month: number; day: number } {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+}
+
 /**
  * איקון מתנה קבוע בפינת המסך - בלחיצה נפתח פופ-אפ שמבטיח קפה חינם
- * ביום ההולדת ואוסף את התאריך. אפשר לפתוח שוב כדי לעדכן תאריך שכבר
+ * בחודש יום ההולדת (תקנון, פרק 6) ואוסף את התאריך. אפשר לפתוח שוב כדי לעדכן תאריך שכבר
  * נשמר (input מתמלא מראש מ-initialBirthday). אם הלקוח עדיין לא הסכים
  * לדיוור שיווקי (marketingOptIn), מוצגת כאן תיבת הסכמה - הזדמנות נוספת
- * להסכים בלי לחזור על כל טופס ההצטרפות. הנוסח שלה מכסה במפורש גם עדכונים
- * ומבצעים, כי הסימון מכניס לאותה רשימת תפוצה של השידורים.
+ * להסכים בלי לחזור על כל טופס ההצטרפות. הדיוור רק מגיל 18: התיבה כוללת
+ * הצהרה, ולא מוצגת בכלל כשהתאריך שהוזן מראה גיל צעיר יותר. מתנת יום
+ * ההולדת עצמה לא תלויה בהסכמה לדיוור.
  *
  * hasBirthdayReward (מהשרת - הזיכוי בפועל, ראו src/lib/birthday-reward.ts)
  * מפעיל אפקט זוהר על האיקון עצמו; כשאין זיכוי אבל יש תאריך שמור, מוצג
@@ -50,6 +58,7 @@ export default function BirthdayGift({
   const [birthdayMarketingOptIn, setBirthdayMarketingOptIn] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [daysUntilBirthday, setDaysUntilBirthday] = useState<number | null>(null);
+  const [underMarketingAge, setUnderMarketingAge] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
 
   useBackToClose(open, () => setOpen(false));
@@ -64,6 +73,13 @@ export default function BirthdayGift({
     }
     computeCountdown();
   }, [savedBirthday, hasBirthdayReward]);
+
+  useEffect(() => {
+    function computeAge() {
+      setUnderMarketingAge(Boolean(birthday) && ageOn(birthday, localToday()) < MARKETING_MIN_AGE);
+    }
+    computeAge();
+  }, [birthday]);
 
   // פתיחה מחדש מתחילה נקי: בלי "נשמר!" מהפעם הקודמת, ובלי שהסגירה
   // האוטומטית שתוזמנה אחרי השמירה תסגור את החלון החדש באמצע
@@ -80,7 +96,7 @@ export default function BirthdayGift({
     event.preventDefault();
     if (!birthday) return;
     setStatus("saving");
-    const optingIn = !marketingOptIn && birthdayMarketingOptIn;
+    const optingIn = !marketingOptIn && birthdayMarketingOptIn && !underMarketingAge;
 
     try {
       const res = await fetch(`/api/customers/${customerId}/birthday`, {
@@ -140,18 +156,20 @@ export default function BirthdayGift({
             {hasBirthdayReward ? (
               <>
                 <p className="mt-2 text-lg font-semibold text-pikol-brown">מזל טוב! 🎉</p>
-                <p className="mt-1 text-sm text-pikol-brown/70">הקפה החינם שלך ליום ההולדת מוכן - אפשר לבקש מימוש בדוכן</p>
+                <p className="mt-1 text-sm text-pikol-brown/70">
+                  הקפה החינם שלך לחודש יום ההולדת מחכה. אפשר לבקש מימוש בדוכן עד סוף החודש.
+                </p>
               </>
             ) : daysUntilBirthday !== null ? (
               <>
                 <p className="mt-2 text-lg font-semibold text-pikol-brown">
                   עוד {daysUntilBirthday === 1 ? "יום אחד" : `${daysUntilBirthday} ימים`} ליום ההולדת שלך!
                 </p>
-                <p className="mt-1 text-sm text-pikol-brown/70">מגיע לך קפה חינם ביום עצמו 🎈</p>
+                <p className="mt-1 text-sm text-pikol-brown/70">בחודש יום ההולדת מגיע לך קפה חינם 🎈</p>
               </>
             ) : (
               <>
-                <p className="mt-2 text-lg font-semibold text-pikol-brown">מגיע לך קפה חינם ביום ההולדת!</p>
+                <p className="mt-2 text-lg font-semibold text-pikol-brown">מגיע לך קפה חינם בחודש יום ההולדת!</p>
                 <p className="mt-1 text-sm text-pikol-brown/70">ספרו לנו מתי, ונדאג להפתיע אתכם</p>
               </>
             )}
@@ -168,18 +186,20 @@ export default function BirthdayGift({
               {!marketingOptIn && (
                 <div className="text-right text-xs text-pikol-brown/70">
                   <p>למה אנחנו מבקשים את זה? כדי שנוכל לפנק אותך בהטבה יום הולדת מיוחדת! 🎈</p>
-                  <label className="mt-1 flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      checked={birthdayMarketingOptIn}
-                      onChange={(event) => setBirthdayMarketingOptIn(event.target.checked)}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      אני מאשר/ת לקבל מ{BUSINESS_NAME} הטבות יום הולדת, עדכונים ומבצעים. אפשר להפסיק
-                      בכל עת בכרטיס.
-                    </span>
-                  </label>
+                  {!underMarketingAge && (
+                    <label className="mt-1 flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={birthdayMarketingOptIn}
+                        onChange={(event) => setBirthdayMarketingOptIn(event.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        אני מעל גיל {MARKETING_MIN_AGE} ומאשר/ת לקבל מ{BUSINESS_NAME} עדכונים ומבצעים.
+                        אפשר להפסיק בכל עת בכרטיס.
+                      </span>
+                    </label>
+                  )}
                 </div>
               )}
 

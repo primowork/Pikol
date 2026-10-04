@@ -16,9 +16,11 @@ import type { ActiveCustomer, CustomerSearchResult } from "@/types";
 interface DashboardClientProps {
   staffName: string;
   vapidPublicKey: string;
+  /** חסרים בהגדרות השם הרשום או מספר העוסק (מוצגים בתקנון ובמדיניות הפרטיות). */
+  missingBusinessDetails: boolean;
 }
 
-export default function DashboardClient({ staffName, vapidPublicKey }: DashboardClientProps) {
+export default function DashboardClient({ staffName, vapidPublicKey, missingBusinessDetails }: DashboardClientProps) {
   const router = useRouter();
   const [activeCustomer, setActiveCustomer] = useState<ActiveCustomer | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -71,6 +73,16 @@ export default function DashboardClient({ staffName, vapidPublicKey }: Dashboard
           הגדרות
         </Link>
       </div>
+
+      {missingBusinessDetails && (
+        <Link
+          href="/staff/settings"
+          className="w-full rounded-2xl border border-pikol-gold/60 bg-pikol-gold/10 p-3 text-center text-sm text-pikol-brown"
+        >
+          חסרים פרטי העסק: השם הרשום ומספר העוסק מופיעים בתקנון המועדון ובמדיניות הפרטיות.{" "}
+          <span className="font-semibold text-pikol-teal underline">למילוי בהגדרות</span>
+        </Link>
+      )}
 
       <NotificationSubscribe
         vapidPublicKey={vapidPublicKey}

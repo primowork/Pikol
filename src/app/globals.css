@@ -105,11 +105,12 @@ body {
 /* הדפסת קוד הדוכן (staff/stand-qr): רק ה-QR עצמו יוצא לדף המודפס,
    בלי לוגו/כותרת/כפתור - הדפוס הסטנדרטי ל"הדפס רק אלמנט אחד". */
 @media print {
-  body * {
+  /* קוד הדוכן: רק הקוד, ממורכז בעמוד */
+  body:has(.print-area) * {
     visibility: hidden;
   }
-  .print-area,
-  .print-area * {
+  body:has(.print-area) .print-area,
+  body:has(.print-area) .print-area * {
     visibility: visible;
   }
   .print-area {
@@ -118,5 +119,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* מסמכים (התקנון): זרימה רגילה על כמה עמודים, בלי כפתורים וקישורי ניווט */
+  .no-print {
+    display: none !important;
   }
 }

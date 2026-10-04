@@ -15,7 +15,7 @@ export const joinSchema = z
     marketingOptIn: z.boolean().optional(),
   })
   .refine((data) => !data.name || data.termsAccepted === true, {
-    message: "יש לאשר את תנאי השימוש ומדיניות הפרטיות",
+    message: "יש לאשר את תקנון המועדון ומדיניות הפרטיות",
     path: ["termsAccepted"],
   });
 

@@ -27,9 +27,13 @@ enum ApprovalStatus {
   DECLINED
 }
 
+// LOGIN: כניסה לכרטיס קיים ממכשיר חדש (טלפון רשום שהוזן ב-/join). נוצרת
+// רק מ-POST /api/customers, לא מהנתיב הציבורי של בקשות האישור, ואישורה לא
+// מוסיף ניקוב - רק מחזיר למכשיר המבקש את מזהה הכרטיס.
 enum ApprovalRequestKind {
   STAMP
   REDEEM
+  LOGIN
 }
 
 enum ConsentKind {
@@ -55,6 +59,9 @@ model Customer {
   rewardsEarned             Int                        @default(0)
   bonusRewardsAvailable     Int                        @default(0)
   lastBirthdayRewardYear    Int?
+  /// מתי זוכתה מתנת יום ההולדת האחרונה. מתנה שלא מומשה פגה בסוף החודש של
+  /// הזיכוי (src/lib/birthday-reward.ts). null במתנות מלפני הכלל הזה - הן לא פגות.
+  birthdayRewardGrantedAt   DateTime?
   termsAccepted             Boolean                    @default(false)
   marketingOptIn            Boolean                    @default(false)
   consentedAt               DateTime?
@@ -71,17 +78,38 @@ model Customer {
 // Customer שומרים רק את המצב האחרון). בחוק הספאם נטל ההוכחה שהנמען הסכים
 // הוא על המפרסם, כלומר על בית הקפה - זה התיעוד שלו.
 model ConsentEvent {
-  id         String      @id @default(cuid())
-  customerId String
-  kind       ConsentKind
-  /** מאיפה: join | birthday | notifications | card | notification */
-  source     String
-  ip         String?
-  createdAt  DateTime    @default(now())
+  id           String      @id @default(cuid())
+  customerId   String
+  kind         ConsentKind
+  /**
+   * מאיפה: join | birthday | notifications | card | notification
+   */
+  source       String
+  ip           String?
+  /// ב-TERMS_ACCEPTED: איזו גרסה של תקנון המועדון אושרה (TERMS_VERSION ב-
+  /// src/lib/config.ts). null בהסכמות מלפני שהתחלנו לשמור גרסה.
+  termsVersion String?
+  createdAt    DateTime    @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId, createdAt])
+}
+
+// כרטיס שנמחק לבקשת הלקוח (DELETE /api/customers/[id], בעל העסק בלבד).
+// הלקוח וכל מה שקשור אליו נמחקים; נשאר רק מספר הטלפון ויומן ההסכמות שלו,
+// כדי שבית הקפה יוכל להראות שהייתה הסכמה אם תעלה טענה על דיוור. בלי שם,
+// בלי יום הולדת ובלי ניקובים. מתועד בתקנון ובמדיניות הפרטיות (שבע שנים).
+model DeletedCustomer {
+  id               String   @id @default(cuid())
+  phone            String
+  /// העתק של שורות ConsentEvent של הלקוח: [{ kind, source, ip, termsVersion, createdAt }]
+  consentHistory   Json
+  customerSince    DateTime
+  deletedAt        DateTime @default(now())
+  deletedByStaffId String?
+
+  @@index([phone])
 }
 
 // חבר צוות / בעל העסק. יכול להתחבר לדשבורד הניהול ולהוסיף ניקובים.
