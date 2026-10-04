@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PASSWORD_MIN_LENGTH, STAMPS_REQUIRED } from "./config";
+import { normalizeVapidSubject } from "./vapid";
 
 /**
  * טופס "כניסה/הצטרפות" חכם אחד ("/join"): תמיד שולח טלפון; שם אופציונלי -
@@ -88,6 +89,8 @@ export const pushSubscriptionSchema = z.object({
       auth: z.string().trim().min(1, "מפתח auth חסר"),
     }),
   }),
+  /** הרשמה קודמת של אותו מכשיר (עם מפתח VAPID ישן) שהדפדפן ביטל לפני ההרשמה הזו. */
+  replacesEndpoint: z.string().trim().min(1).optional(),
 });
 
 /** ביטול רישום Web Push של מכשיר צוות. */
@@ -150,20 +153,25 @@ export const aboutUsSettingsSchema = z.object({
 });
 
 /**
- * עדכון VAPID subject - staff בלבד, מ-/staff/settings. אותה בדיקת פורמט
- * בדיוק כמו web-push עצמו (validateSubject ב-src/lib/push.ts) - עדיף
- * לתפוס פורמט שגוי כאן, בטופס, מאשר רק כשמנסים לשלוח push בפועל.
+ * עדכון כתובת הקשר להתראות (VAPID subject) - staff בלבד, מ-/staff/settings.
+ * אותה בדיקה כמו לפני כל שליחה (normalizeVapidSubject ב-src/lib/vapid.ts):
+ * אפל דוחה כל הודעה כשהכתובת לא תקינה, אז עדיף לתפוס את זה כאן, בטופס.
+ * נשמרת הכתובת המנוקה (בלי רווחים, עם mailto:).
  */
 export const vapidSubjectSettingsSchema = z.object({
   vapidSubject: z
     .string()
     .trim()
     .min(1, "יש להזין כתובת")
-    .refine((value) => {
-      try {
-        return ["https:", "mailto:"].includes(new URL(value).protocol);
-      } catch {
-        return false;
+    .transform((value, ctx) => {
+      const normalized = normalizeVapidSubject(value);
+      if (!normalized) {
+        ctx.addIssue({
+          code: "custom",
+          message: "כתובת לא תקינה. למשל mailto:info@cafe.co.il, או כתובת אתר שמתחילה ב-https://",
+        });
+        return z.NEVER;
       }
-    }, "הכתובת חייבת להתחיל ב-mailto: או https://"),
+      return normalized;
+    }),
 });

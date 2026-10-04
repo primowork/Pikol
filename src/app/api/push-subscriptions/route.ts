@@ -40,6 +40,12 @@ export async function POST(request: NextRequest) {
       throw new ValidationError("בקשה לא תקינה");
     }
     const { endpoint, keys } = parsed.data.subscription;
+    const { replacesEndpoint } = parsed.data;
+
+    // הרשמה ישנה של אותו מכשיר (מפתח VAPID קודם) - רק של חבר הצוות המחובר
+    if (replacesEndpoint && replacesEndpoint !== endpoint) {
+      await prisma.pushSubscription.deleteMany({ where: { endpoint: replacesEndpoint, staffId: staff.sub } });
+    }
 
     const subscription = await prisma.pushSubscription.upsert({
       where: { endpoint },

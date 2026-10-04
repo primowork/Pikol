@@ -38,6 +38,8 @@ export default function VapidSubjectSettingsForm({ initialValue }: VapidSubjectS
         return;
       }
 
+      // השרת שומר את הכתובת המנוקה (למשל בלי הרווח אחרי mailto:) - מציגים אותה
+      setValue(data.vapidSubject);
       setState("saved");
     } catch {
       setErrorMessage("בעיית תקשורת - נסו שוב");

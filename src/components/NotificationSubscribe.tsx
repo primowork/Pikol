@@ -126,7 +126,9 @@ export default function NotificationSubscribe({
       // לתפקיד הזה (upsert לפי endpoint). מינוי עם מפתח קודם מבטלים קודם,
       // אחרת subscribe() נכשל עליו בכל לחיצה.
       const existing = await registration.pushManager.getSubscription();
+      let replacesEndpoint: string | undefined;
       if (existing && !hasCurrentServerKey(existing, vapidPublicKey)) {
+        replacesEndpoint = existing.endpoint;
         await existing.unsubscribe();
       }
       const subscription = await registration.pushManager.subscribe({
@@ -137,7 +139,8 @@ export default function NotificationSubscribe({
       const res = await fetch(subscribeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription: subscription.toJSON() }),
+        // replacesEndpoint: השרת מוחק את ההרשמה הישנה של המכשיר, שלא תיכשל בכל שידור
+        body: JSON.stringify({ subscription: subscription.toJSON(), replacesEndpoint }),
       });
 
       if (!res.ok) {

@@ -11,6 +11,21 @@ import type { BroadcastAudience, CustomerBroadcastResult } from "@/types";
 type Step = "compose" | "preview" | "sent";
 
 /** "ללקוח אחד" / "ל-3 לקוחות" - בלי "ל-1 לקוחות". */
+/**
+ * הסבר לדחייה לפי תשובת שירות ההתראות. BadJwtToken של אפל אומר שהחתימה לא
+ * תקינה (לא שהמכשיר נרשם עם מפתח אחר - לזה יש VapidPkHashMismatch).
+ */
+function pushFailureHint(failureReason: string | null): string {
+  if (!failureReason) return "";
+  if (/BadJwtToken/.test(failureReason)) {
+    return "אפל דחתה את החתימה של ההודעה. בדרך כלל זו כתובת הקשר להתראות בעמוד ההגדרות: היא צריכה להיות בפורמט mailto:שם@דומיין, בלי רווחים.";
+  }
+  if (/VapidPkHashMismatch|do not correspond/i.test(failureReason)) {
+    return "המכשיר נרשם עם מפתחות התראה ישנים. כשהלקוח יפעיל התראות מחדש בכרטיס, ההרשמה תתחדש.";
+  }
+  return "";
+}
+
 function toCount(count: number, one: string, many: string) {
   return count === 1 ? `ל${one}` : `ל-${count} ${many}`;
 }
@@ -179,9 +194,8 @@ export default function BroadcastToCustomers() {
         {sendResult.failedCount > 0 && (
           <div className="rounded-xl bg-red-50 p-3 text-xs text-red-800">
             <p>
-              שירות ההתראות דחה את השליחה {toCount(sendResult.failedCount, "מכשיר אחד", "מכשירים")}.
-              אם זה חוזר בכל שידור, כנראה שמפתחות ה-VAPID בשרת הוחלפו מאז שהלקוחות
-              נרשמו, והם צריכים להפעיל התראות מחדש בכרטיס.
+              שירות ההתראות דחה את השליחה {toCount(sendResult.failedCount, "מכשיר אחד", "מכשירים")}.{" "}
+              {pushFailureHint(sendResult.failureReason)}
             </p>
             {sendResult.failureReason && (
               <p dir="ltr" className="mt-1 break-words text-left font-mono text-[11px]">

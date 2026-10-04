@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { LAUNCH_TERMS_VERSION, STAMPS_REQUIRED, TERMS_VERSION } from "@/lib/config";
 import { grantBirthdayRewardIfDue } from "@/lib/birthday-reward";
 import { getAboutUsText, getBusinessDetails } from "@/lib/business-settings";
+import { getVapidPublicKey } from "@/lib/vapid";
 import StampCard from "@/components/StampCard";
 
 export default async function CardPage({
@@ -37,7 +38,7 @@ export default async function CardPage({
       initialStamps={customer.currentStamps}
       stampsRequired={STAMPS_REQUIRED}
       initialRewardsEarned={customer.rewardsEarned}
-      vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ""}
+      vapidPublicKey={getVapidPublicKey()}
       initialBirthday={customer.birthday ? customer.birthday.toISOString().slice(0, 10) : null}
       initialMarketingOptIn={customer.marketingOptIn}
       hasBirthdayReward={customer.bonusRewardsAvailable > 0}
